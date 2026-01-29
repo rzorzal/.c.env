@@ -1,9 +1,10 @@
 
 use crate::lexing;
 use crate::grama::gramma_rules::{Program, Stmt, Expr};
+use crate::grama::error::{ParseError, ParseResult};
 
 
-pub fn build_statements(lex_vec: &[lexing::Token]) -> Option<Program> {
+pub fn build_statements(lex_vec: &[lexing::Token]) -> ParseResult<Program> {
   let mut stmts: Vec<Vec<lexing::Token>> = Vec::new();
   let mut stmt: Vec<lexing::Token> = Vec::new();
 
@@ -28,160 +29,278 @@ pub fn build_statements(lex_vec: &[lexing::Token]) -> Option<Program> {
     stmts.push(stmt);
   }
 
-  // Create a program from the parsed statements
-  // let program: Option<Program> = build_statements(lex_vec);
-  // println!("Program: {:#?}", program);
-  println!("Statements: {:#?}", stmts);
-
   // Parse statements and build a program
   if stmts.is_empty() {
-    return None;
+    return Ok(Program::empty());
   }
 
   // Try to parse all statements
-  let parsed_stmts = parse_statements(&stmts);
+  let parsed_stmts = parse_statements(&stmts)?;
 
   // Return a program from parsed statements
-  Some(Program::new(parsed_stmts))
+  Ok(Program::new(parsed_stmts))
 }
 
-fn parse_statements(stmts: &[Vec<lexing::Token>]) -> Vec<Stmt> {
+fn parse_statements(stmts: &[Vec<lexing::Token>]) -> ParseResult<Vec<Stmt>> {
   let mut parsed_stmts: Vec<Stmt> = Vec::new();
+  let mut errors: Vec<ParseError> = Vec::new();
 
   for stmt in stmts {
-    if let Some(parsed_stmt) = parse_statement(stmt) {
-      parsed_stmts.push(parsed_stmt);
+    match parse_statement(stmt) {
+      Ok(parsed_stmt) => parsed_stmts.push(parsed_stmt),
+      Err(err) => {
+        // Collect errors but continue parsing (error recovery)
+        errors.push(err);
+      }
     }
   }
 
-  parsed_stmts
+  // If we collected any errors, return the first one
+  // In the future, we could return all errors
+  if let Some(first_error) = errors.first() {
+    return Err(first_error.clone());
+  }
+
+  Ok(parsed_stmts)
 }
 
-fn parse_statement(tokens: &[lexing::Token]) -> Option<Stmt> {
+fn parse_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
   // Check for variable declaration: 'private' keyword
-  if !tokens.is_empty() {
-    match &tokens[0].token_type {
-      lexing::TokenType::Private(_) => {
-        return parse_var_declaration(tokens, true);
-      }
-      _ => {
-        // If not a variable declaration, try to parse as expression statement
-        if let Some(expr) = parse_expression(tokens) {
-          return Some(Stmt::ExprStmt(expr));
-        }
-      }
-    }
+  if tokens.is_empty() {
+    return Err(ParseError::invalid_statement("Empty statement", 0));
   }
 
-  None
-}
-
-fn parse_var_declaration(tokens: &[lexing::Token], is_private: bool) -> Option<Stmt> {
-  let start_idx = if is_private { 1 } else { 0 };
-
-  if tokens.len() > start_idx + 2 {
-    // Check if we have an identifier
-    if let lexing::TokenType::Identifier(name) = &tokens[start_idx].token_type {
-      // Check for equals sign
-      if tokens.len() > start_idx + 1 {
-        if let lexing::TokenType::Assign(_) = &tokens[start_idx + 1].token_type {
-          // Parse the expression after the equals sign
-          let expr_tokens = &tokens[(start_idx + 2)..];
-          if let Some(expr) = parse_expression(expr_tokens) {
-            return Some(Stmt::VarDecl {
-              private_: is_private,
-              name: name.clone(),
-              value: expr
-            });
+  match &tokens[0].token_type {
+    lexing::TokenType::Private(_) => {
+      parse_var_declaration(tokens, true)
+    }
+    _ => {
+      // Check if it's an assignment: identifier followed by '='
+      if tokens.len() >= 2 {
+        if let lexing::TokenType::Identifier(_name) = &tokens[0].token_type {
+          if let lexing::TokenType::Assign(_) = &tokens[1].token_type {
+            // This is an assignment (or attempted assignment)
+            return parse_assignment(tokens);
           }
         }
       }
+
+      // If not a variable declaration or assignment, try to parse as expression statement
+      let expr = parse_expression(tokens)?;
+      Ok(Stmt::ExprStmt(expr))
+    }
+  }
+}
+
+fn parse_var_declaration(tokens: &[lexing::Token], is_private: bool) -> ParseResult<Stmt> {
+  let start_idx = if is_private { 1 } else { 0 };
+
+  if tokens.len() <= start_idx {
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_statement(
+      "Expected identifier after 'private'",
+      pos
+    ));
+  }
+
+  // Check if we have an identifier
+  if let lexing::TokenType::Identifier(name) = &tokens[start_idx].token_type {
+    // Check for equals sign
+    if tokens.len() <= start_idx + 1 {
+      return Err(ParseError::unexpected_token(
+        "'=' (assignment)",
+        "end of statement",
+        tokens[start_idx].end
+      ).with_context("Variable declarations must have a value: 'private name = value'".to_string()));
+    }
+
+    if let lexing::TokenType::Assign(_) = &tokens[start_idx + 1].token_type {
+      // Parse the expression after the equals sign
+      if tokens.len() <= start_idx + 2 {
+        return Err(ParseError::invalid_expression(
+          "Expected value after '='",
+          tokens[start_idx + 1].end
+        ));
+      }
+
+      let expr_tokens = &tokens[(start_idx + 2)..];
+      let expr = parse_expression(expr_tokens)?;
+
+      return Ok(Stmt::VarDecl {
+        private_: is_private,
+        name: name.clone(),
+        value: expr
+      });
+    } else {
+      return Err(ParseError::unexpected_token(
+        "'='",
+        &format!("{:?}", tokens[start_idx + 1].token_type),
+        tokens[start_idx + 1].start
+      ));
     }
   }
 
-  None
+  Err(ParseError::unexpected_token(
+    "identifier",
+    &format!("{:?}", tokens[start_idx].token_type),
+    tokens[start_idx].start
+  ))
 }
 
-fn parse_expression(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_assignment(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
+  // tokens[0] should be an identifier, tokens[1] should be '='
   if tokens.is_empty() {
-    return None;
+    return Err(ParseError::invalid_statement("Empty assignment", 0));
+  }
+
+  // Extract the target identifier
+  let target = if let lexing::TokenType::Identifier(name) = &tokens[0].token_type {
+    name.clone()
+  } else {
+    return Err(ParseError::unexpected_token(
+      "identifier",
+      &format!("{:?}", tokens[0].token_type),
+      tokens[0].start
+    ));
+  };
+
+  // Check for equals sign
+  if tokens.len() < 2 {
+    return Err(ParseError::unexpected_token(
+      "'='",
+      "end of statement",
+      tokens[0].end
+    ));
+  }
+
+  if !matches!(tokens[1].token_type, lexing::TokenType::Assign(_)) {
+    return Err(ParseError::unexpected_token(
+      "'='",
+      &format!("{:?}", tokens[1].token_type),
+      tokens[1].start
+    ));
+  }
+
+  // Parse the value expression
+  if tokens.len() < 3 {
+    return Err(ParseError::invalid_expression(
+      "Expected value after '='",
+      tokens[1].end
+    ));
+  }
+
+  let expr_tokens = &tokens[2..];
+  let value = parse_expression(expr_tokens)?;
+
+  Ok(Stmt::Assignment { target, value })
+}
+
+fn parse_expression(tokens: &[lexing::Token]) -> ParseResult<Expr> {
+  if tokens.is_empty() {
+    return Err(ParseError::invalid_expression("Empty expression", 0));
   }
 
   // Try to parse binary expressions first
-  if let Some(expr) = parse_binary_expression(tokens, 0) {
-    return Some(expr);
+  if let Ok(expr) = parse_binary_expression(tokens, 0) {
+    return Ok(expr);
   }
 
   // If not a binary expression, try to parse other expressions
   parse_primary_expression(tokens)
 }
 
-fn parse_primary_expression(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_primary_expression(tokens: &[lexing::Token]) -> ParseResult<Expr> {
+  let (expr, _) = parse_primary_expression_with_count(tokens)?;
+  Ok(expr)
+}
+
+/// Parse a primary expression and return the expression plus the number of tokens consumed
+fn parse_primary_expression_with_count(tokens: &[lexing::Token]) -> ParseResult<(Expr, usize)> {
   if tokens.is_empty() {
-    return None;
+    return Err(ParseError::invalid_expression("Empty expression", 0));
   }
 
   // First try to parse if expressions (ternary operator)
-  if let Some(if_expr) = parse_if_expression(tokens) {
-    return Some(if_expr);
+  if let Ok(if_expr) = parse_if_expression(tokens) {
+    // If expressions consume all tokens they need, but we don't have an easy way
+    // to know how many. For now, return 1 (this is a limitation)
+    return Ok((if_expr, 1));
   }
 
   // Then try to parse find comprehensions
-  if let Some(find_expr) = parse_find_comprehension(tokens) {
-    return Some(find_expr);
+  if let Ok(find_expr) = parse_find_comprehension(tokens) {
+    return Ok((find_expr, 1));
   }
 
+  let token_pos = tokens[0].start;
+
   match &tokens[0].token_type {
-    // Literals
+    // Literals - all consume exactly 1 token
     lexing::TokenType::IntegerLiteral(num) => {
-      return Some(Expr::Number(*num as f64))
+      Ok((Expr::Number(*num as f64), 1))
     },
     lexing::TokenType::StringLiteral(value) => {
-      return Some(Expr::StringLiteral(value.clone()))
+      Ok((Expr::StringLiteral(value.clone()), 1))
     },
     lexing::TokenType::StringTemplate(_) => {
-      return parse_string_template(tokens)
+      // String templates consume 1 token
+      let expr = parse_string_template(tokens)?;
+      Ok((expr, 1))
     },
     lexing::TokenType::TrueLiteral(_) => {
-      return Some(Expr::Bool(true))
+      Ok((Expr::Bool(true), 1))
     },
     lexing::TokenType::FalseLiteral(_) => {
-      return Some(Expr::Bool(false))
+      Ok((Expr::Bool(false), 1))
     },
-    // Add support for null literal if it exists in your token types
-    // If there's no specific null token, you might handle identifiers like "null" here
     _ if tokens.len() == 1 && matches!(&tokens[0].token_type, lexing::TokenType::Identifier(id) if id.to_lowercase() == "null") => {
-      return Some(Expr::Null)
+      Ok((Expr::Null, 1))
     },
 
     // Identifiers
     lexing::TokenType::Identifier(value) => {
       // Check if this is a function call
       if tokens.len() > 1 && matches!(&tokens[1].token_type, lexing::TokenType::LeftParen(_)) {
-        return parse_function_call(tokens);
+        return parse_function_call_with_count(tokens);
       }
 
-      // Check if this is an array/object access (identifier followed by brackets)
+      // Check if this is an array/object access
       if tokens.len() > 1 && matches!(&tokens[1].token_type, lexing::TokenType::LeftBracket(_)) {
-        return parse_index_access(tokens);
+        let expr = parse_index_access(tokens)?;
+        return Ok((expr, 1));
       }
 
-      // Check if this is a property access (identifier followed by dot)
+      // Check if this is a property access
       if tokens.len() > 2 && matches!(&tokens[1].token_type, lexing::TokenType::Dot(_)) {
         if let lexing::TokenType::Identifier(prop_name) = &tokens[2].token_type {
-          // Convert obj.prop to obj["prop"] for consistency
           let target = Expr::Ident(value.clone());
           let index = Expr::StringLiteral(prop_name.clone());
-
-          return Some(Expr::Index {
+          return Ok((Expr::Index {
             target: Box::new(target),
             index: Box::new(index),
-          });
+          }, 3)); // Consumed: identifier, dot, property
         }
       }
 
-      // Regular identifier
-      return Some(Expr::Ident(value.clone()))
+      // Regular identifier - consumes 1 token
+      Ok((Expr::Ident(value.clone()), 1))
+    },
+
+    // Keywords that can be function calls (print, type, len, etc.)
+    lexing::TokenType::Print(_) |
+    lexing::TokenType::Import(_) |
+    lexing::TokenType::Range(_) |
+    lexing::TokenType::ImportAwsSecret(_) => {
+      // Check if this is a function call
+      if tokens.len() > 1 && matches!(&tokens[1].token_type, lexing::TokenType::LeftParen(_)) {
+        return parse_function_call_with_count(tokens);
+      }
+      // Keywords without parentheses are errors
+      Err(ParseError::unexpected_token(
+        "expression",
+        &format!("{:?}", tokens[0].token_type),
+        tokens[0].start
+      ))
     },
 
     // Parenthesized expressions
@@ -189,6 +308,7 @@ fn parse_primary_expression(tokens: &[lexing::Token]) -> Option<Expr> {
       // Find the matching right parenthesis
       let mut paren_count = 1;
       let mut end_idx = 1;
+      let opening_pos = tokens[0].start;
 
       while end_idx < tokens.len() && paren_count > 0 {
         match &tokens[end_idx].token_type {
@@ -199,10 +319,18 @@ fn parse_primary_expression(tokens: &[lexing::Token]) -> Option<Expr> {
         end_idx += 1;
       }
 
-      if paren_count == 0 && end_idx > 1 {
-        // Parse the expression inside the parentheses
-        return parse_expression(&tokens[1..end_idx-1]);
+      if paren_count != 0 {
+        return Err(ParseError::unmatched_delimiter(')', token_pos, Some(opening_pos)));
       }
+
+      if end_idx > 1 {
+        // Parse the expression inside the parentheses
+        let expr = parse_expression(&tokens[1..end_idx-1])?;
+        // Consumed: opening paren + inner tokens + closing paren = end_idx tokens
+        return Ok((expr, end_idx));
+      }
+
+      Err(ParseError::invalid_expression("Empty parentheses", token_pos))
     },
 
     // Unary expressions
@@ -213,33 +341,44 @@ fn parse_primary_expression(tokens: &[lexing::Token]) -> Option<Expr> {
         _ => unreachable!(),
       };
 
-      if tokens.len() > 1 {
-        if let Some(expr) = parse_expression(&tokens[1..]) {
-          return Some(Expr::Unary {
-            op,
-            rhs: Box::new(expr),
-          });
-        }
+      if tokens.len() <= 1 {
+        return Err(ParseError::invalid_expression(
+          "Expected expression after unary operator",
+          token_pos
+        ));
       }
+
+      let expr = parse_expression(&tokens[1..])?;
+      // Consumed: operator + all tokens for the expression
+      // This is approximate - ideally we'd know exactly how many
+      Ok((Expr::Unary { op, rhs: Box::new(expr) }, tokens.len()))
     },
 
     // Array literals
     lexing::TokenType::LeftBracket(_) => {
-      return parse_array_expression(tokens);
+      let expr = parse_array_expression(tokens)?;
+      // Array expressions consume tokens - for now approximate
+      Ok((expr, 1))
     },
 
-    _ => {},
+    _ => {
+      Err(ParseError::unexpected_token(
+        "expression",
+        &format!("{:?}", tokens[0].token_type),
+        token_pos
+      ))
+    }
   }
-
-  None
 }
 
-fn parse_array_expression(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_array_expression(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   // First token must be left bracket
   if tokens.is_empty() || !matches!(&tokens[0].token_type, lexing::TokenType::LeftBracket(_)) {
-    return None;
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_expression("Expected '['", pos));
   }
 
+  let opening_pos = tokens[0].start;
   // Find the matching right bracket
   let mut bracket_count = 1;
   let mut end_idx = 1;
@@ -254,17 +393,17 @@ fn parse_array_expression(tokens: &[lexing::Token]) -> Option<Expr> {
   }
 
   if bracket_count != 0 {
-    return None; // Unmatched brackets
+    return Err(ParseError::unmatched_delimiter(']', opening_pos, Some(opening_pos)));
   }
 
   // Check if this is an array comprehension
   let inner_tokens = &tokens[1..end_idx-1];
-  if let Some(array_comp) = parse_array_comprehension(inner_tokens) {
-    return Some(array_comp);
+  if let Ok(array_comp) = parse_array_comprehension(inner_tokens) {
+    return Ok(array_comp);
   }
 
   // Parse array elements
-  let elements = parse_comma_separated_expressions(inner_tokens);
+  let elements = parse_comma_separated_expressions(inner_tokens)?;
 
   // Convert to array expression
   // Note: The Expr enum doesn't have a dedicated Array variant in your grammar,
@@ -273,20 +412,33 @@ fn parse_array_expression(tokens: &[lexing::Token]) -> Option<Expr> {
     .map(|expr| crate::grama::gramma_rules::TemplatePart::Expr(expr))
     .collect();
 
-  Some(Expr::Template(template_parts))
+  Ok(Expr::Template(template_parts))
 }
 
-fn parse_function_call(tokens: &[lexing::Token]) -> Option<Expr> {
-  if tokens.len() < 4 || !matches!(&tokens[1].token_type, lexing::TokenType::LeftParen(_)) {
-    return None;
+fn parse_function_call(tokens: &[lexing::Token]) -> ParseResult<Expr> {
+  let (expr, _) = parse_function_call_with_count(tokens)?;
+  Ok(expr)
+}
+
+fn parse_function_call_with_count(tokens: &[lexing::Token]) -> ParseResult<(Expr, usize)> {
+  if tokens.len() < 3 || !matches!(&tokens[1].token_type, lexing::TokenType::LeftParen(_)) {
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_expression("Expected '(' after function name", pos));
   }
 
-  // Parse the callee
-  let callee = Expr::Ident(match &tokens[0].token_type {
+  // Parse the callee - extract function name from various token types
+  let callee_name = match &tokens[0].token_type {
     lexing::TokenType::Identifier(name) => name.clone(),
-    _ => return None,
-  });
+    lexing::TokenType::Print(name) => name.clone(),
+    lexing::TokenType::Import(name) => name.clone(),
+    lexing::TokenType::Range(name) => name.clone(),
+    lexing::TokenType::ImportAwsSecret(name) => name.clone(),
+    _ => return Err(ParseError::invalid_expression("Expected identifier or function name", tokens[0].start)),
+  };
 
+  let callee = Expr::Ident(callee_name);
+
+  let opening_pos = tokens[1].start;
   // Find the closing parenthesis
   let mut paren_count = 1;
   let mut end_idx = 2;
@@ -300,21 +452,33 @@ fn parse_function_call(tokens: &[lexing::Token]) -> Option<Expr> {
     end_idx += 1;
   }
 
-  if paren_count != 0 || end_idx <= 2 {
-    return None; // Unmatched parentheses
+  if paren_count != 0 {
+    return Err(ParseError::unmatched_delimiter(')', opening_pos, Some(opening_pos)));
   }
 
   // Parse arguments
   let args_tokens = &tokens[2..end_idx-1];
-  let args = parse_comma_separated_expressions(args_tokens);
+  let args = if args_tokens.is_empty() {
+    Vec::new()
+  } else {
+    parse_comma_separated_expressions(args_tokens)?
+  };
 
-  Some(Expr::Call {
+  let expr = Expr::Call {
     callee: Box::new(callee),
     args,
-  })
+  };
+
+  // Return expression and number of tokens consumed
+  // Consumed: function_name + ( + args + ) = end_idx tokens
+  Ok((expr, end_idx))
 }
 
-fn parse_comma_separated_expressions(tokens: &[lexing::Token]) -> Vec<Expr> {
+fn parse_comma_separated_expressions(tokens: &[lexing::Token]) -> ParseResult<Vec<Expr>> {
+  if tokens.is_empty() {
+    return Ok(Vec::new());
+  }
+
   let mut expressions = Vec::new();
   let mut start_idx = 0;
   let mut paren_count: usize = 0;
@@ -327,9 +491,8 @@ fn parse_comma_separated_expressions(tokens: &[lexing::Token]) -> Vec<Expr> {
         paren_count == 0 && bracket_count == 0 && brace_count == 0) {
 
       if i > start_idx {
-        if let Some(expr) = parse_expression(&tokens[start_idx..i]) {
-          expressions.push(expr);
-        }
+        let expr = parse_expression(&tokens[start_idx..i])?;
+        expressions.push(expr);
       }
 
       start_idx = i + 1;
@@ -349,36 +512,73 @@ fn parse_comma_separated_expressions(tokens: &[lexing::Token]) -> Vec<Expr> {
     }
   }
 
-  expressions
+  Ok(expressions)
 }
 
-fn parse_binary_expression(tokens: &[lexing::Token], min_precedence: u8) -> Option<Expr> {
-  if tokens.is_empty() {
-    return None;
+/// Get the precedence level for a binary operator
+/// Higher numbers = higher precedence (binds tighter)
+///
+/// Precedence levels:
+/// - Level 0: Or `|`
+/// - Level 1: And `&`
+/// - Level 2: Equality `==`, `!=`
+/// - Level 3: Comparison `<`, `>`, `<=`, `>=`
+/// - Level 4: Addition/Subtraction `+`, `-`
+/// - Level 5: Multiplication/Division/Modulo `*`, `/`, `%`
+fn get_operator_precedence(token_type: &lexing::TokenType) -> Option<(crate::grama::gramma_rules::BinOp, u8)> {
+  match token_type {
+    // Level 0: Logical OR (lowest precedence)
+    lexing::TokenType::Or(_) => Some((crate::grama::gramma_rules::BinOp::Or, 0)),
+
+    // Level 1: Logical AND
+    lexing::TokenType::And(_) => Some((crate::grama::gramma_rules::BinOp::And, 1)),
+
+    // Level 2: Equality operators
+    lexing::TokenType::Equal(_) => Some((crate::grama::gramma_rules::BinOp::Eq, 2)),
+    lexing::TokenType::NotEqual(_) => Some((crate::grama::gramma_rules::BinOp::Ne, 2)),
+
+    // Level 3: Comparison operators
+    lexing::TokenType::LessThan(_) => Some((crate::grama::gramma_rules::BinOp::Lt, 3)),
+    lexing::TokenType::LessThanOrEqual(_) => Some((crate::grama::gramma_rules::BinOp::Le, 3)),
+    lexing::TokenType::GreaterThan(_) => Some((crate::grama::gramma_rules::BinOp::Gt, 3)),
+    lexing::TokenType::GreaterThanOrEqual(_) => Some((crate::grama::gramma_rules::BinOp::Ge, 3)),
+
+    // Level 4: Addition and Subtraction
+    lexing::TokenType::Plus(_) => Some((crate::grama::gramma_rules::BinOp::Add, 4)),
+    lexing::TokenType::Minus(_) => Some((crate::grama::gramma_rules::BinOp::Sub, 4)),
+
+    // Level 5: Multiplication, Division, and Modulo (highest precedence)
+    lexing::TokenType::Multiply(_) => Some((crate::grama::gramma_rules::BinOp::Mul, 5)),
+    lexing::TokenType::Divider(_) => Some((crate::grama::gramma_rules::BinOp::Div, 5)),
+    lexing::TokenType::Mod(_) => Some((crate::grama::gramma_rules::BinOp::Mod, 5)),
+
+    // Not a binary operator
+    _ => None,
+  }
+}
+
+pub fn parse_binary_expression(tokens: &[lexing::Token], min_precedence: u8) -> ParseResult<Expr> {
+  let (expr, _) = parse_binary_expression_impl(tokens, 0, min_precedence)?;
+  Ok(expr)
+}
+
+fn parse_binary_expression_impl(tokens: &[lexing::Token], mut pos: usize, min_precedence: u8) -> ParseResult<(Expr, usize)> {
+  if pos >= tokens.len() {
+    return Err(ParseError::invalid_expression("Empty expression in binary operation", 0));
   }
 
   // First parse the left-hand side as a primary expression
-  let mut lhs = parse_primary_expression(tokens)?;
+  let (mut lhs, tokens_consumed) = parse_primary_expression_with_count(&tokens[pos..])?;
+  pos += tokens_consumed;
 
-  let mut position = 1;
-  while position < tokens.len() {
+  while pos < tokens.len() {
     // Lookahead to find a binary operator
-    let op_token = &tokens[position];
-    let (op, precedence) = match &op_token.token_type {
-      lexing::TokenType::Plus(_) => (crate::grama::gramma_rules::BinOp::Add, 1),
-      lexing::TokenType::Minus(_) => (crate::grama::gramma_rules::BinOp::Sub, 1),
-      lexing::TokenType::Multiply(_) => (crate::grama::gramma_rules::BinOp::Mul, 2),
-      lexing::TokenType::Divider(_) => (crate::grama::gramma_rules::BinOp::Div, 2),
-      lexing::TokenType::Mod(_) => (crate::grama::gramma_rules::BinOp::Mod, 2),
-      lexing::TokenType::Equal(_) => (crate::grama::gramma_rules::BinOp::Eq, 0),
-      lexing::TokenType::NotEqual(_) => (crate::grama::gramma_rules::BinOp::Ne, 0),
-      lexing::TokenType::LessThan(_) => (crate::grama::gramma_rules::BinOp::Lt, 0),
-      lexing::TokenType::LessThanOrEqual(_) => (crate::grama::gramma_rules::BinOp::Le, 0),
-      lexing::TokenType::GreaterThan(_) => (crate::grama::gramma_rules::BinOp::Gt, 0),
-      lexing::TokenType::GreaterThanOrEqual(_) => (crate::grama::gramma_rules::BinOp::Ge, 0),
-      lexing::TokenType::And(_) => (crate::grama::gramma_rules::BinOp::And, 0),
-      lexing::TokenType::Or(_) => (crate::grama::gramma_rules::BinOp::Or, 0),
-      _ => break,
+    let op_token = &tokens[pos];
+
+    // Get operator and its precedence
+    let (op, precedence) = match get_operator_precedence(&op_token.token_type) {
+      Some((op, prec)) => (op, prec),
+      None => break, // Not a binary operator, stop parsing
     };
 
     // If this operator's precedence is too low, break
@@ -386,38 +586,30 @@ fn parse_binary_expression(tokens: &[lexing::Token], min_precedence: u8) -> Opti
       break;
     }
 
-    // Look past the operator to parse the RHS
-    position += 1;
-    if position >= tokens.len() {
-      break;
+    // Move past the operator
+    pos += 1;
+    if pos >= tokens.len() {
+      return Err(ParseError::invalid_expression(
+        "Expected expression after operator",
+        op_token.start
+      ));
     }
 
     // Recursively parse the right-hand side with higher precedence
-    if let Some(rhs) = parse_binary_expression(&tokens[position..], precedence + 1) {
-      lhs = Expr::Binary {
-        lhs: Box::new(lhs),
-        op,
-        rhs: Box::new(rhs),
-      };
-    } else {
-      // If we couldn't parse a valid RHS, try to parse a primary expression
-      if let Some(rhs) = parse_primary_expression(&tokens[position..]) {
-        lhs = Expr::Binary {
-          lhs: Box::new(lhs),
-          op,
-          rhs: Box::new(rhs),
-        };
-      }
-    }
+    let (rhs, new_pos) = parse_binary_expression_impl(tokens, pos, precedence + 1)?;
+    pos = new_pos;
 
-    // Move past the RHS
-    position = tokens.len();
+    lhs = Expr::Binary {
+      lhs: Box::new(lhs),
+      op,
+      rhs: Box::new(rhs),
+    };
   }
 
-  Some(lhs)
+  Ok((lhs, pos))
 }
 
-fn parse_array_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_array_comprehension(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   // Array comprehension pattern: expr for var of/in iter [if condition]
 
   // Find the 'for' keyword
@@ -430,7 +622,11 @@ fn parse_array_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
   }
 
   if for_idx >= tokens.len() || for_idx == 0 {
-    return None; // No 'for' found or it's at the beginning
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_expression(
+      "Array comprehension requires 'for' keyword",
+      pos
+    ));
   }
 
   // Parse the expression to include in the array
@@ -439,30 +635,47 @@ fn parse_array_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
 
   // Parse variable name
   if for_idx + 1 >= tokens.len() {
-    return None;
+    return Err(ParseError::invalid_expression(
+      "Expected variable name after 'for'",
+      tokens[for_idx].end
+    ));
   }
 
   let var_token = &tokens[for_idx + 1];
   let var = match &var_token.token_type {
     lexing::TokenType::Identifier(name) => name.clone(),
-    _ => return None,
+    _ => return Err(ParseError::unexpected_token(
+      "variable name",
+      &format!("{:?}", var_token.token_type),
+      var_token.start
+    )),
   };
 
   // Check for 'of' or 'in'
   if for_idx + 2 >= tokens.len() {
-    return None;
+    return Err(ParseError::invalid_expression(
+      "Expected 'of' or 'in' after variable name",
+      tokens[for_idx + 1].end
+    ));
   }
 
   let mode_token = &tokens[for_idx + 2];
   let mode = match &mode_token.token_type {
     lexing::TokenType::Of(_) => crate::grama::gramma_rules::IterMode::Of,
     lexing::TokenType::In(_) => crate::grama::gramma_rules::IterMode::In,
-    _ => return None,
+    _ => return Err(ParseError::unexpected_token(
+      "'of' or 'in'",
+      &format!("{:?}", mode_token.token_type),
+      mode_token.start
+    )),
   };
 
   // Parse iterator expression
   if for_idx + 3 >= tokens.len() {
-    return None;
+    return Err(ParseError::invalid_expression(
+      "Expected iterator expression",
+      tokens[for_idx + 2].end
+    ));
   }
 
   let mut iter_end_idx = for_idx + 3;
@@ -479,13 +692,13 @@ fn parse_array_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
   // Parse optional filter condition
   let filter = if iter_end_idx < tokens.len() && matches!(&tokens[iter_end_idx].token_type, lexing::TokenType::If(_)) {
     let filter_tokens = &tokens[(iter_end_idx + 1)..];
-    parse_expression(filter_tokens).map(Box::new)
+    Some(Box::new(parse_expression(filter_tokens)?))
   } else {
     None
   };
 
   // Create array comprehension
-  Some(Expr::ArrayComp(crate::grama::gramma_rules::ArrayComp {
+  Ok(Expr::ArrayComp(crate::grama::gramma_rules::ArrayComp {
     expr: Box::new(expr),
     var,
     mode,
@@ -494,12 +707,13 @@ fn parse_array_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
   }))
 }
 
-fn parse_if_expression(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_if_expression(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   // If expression pattern: if <cond> ? <then_expr> else <else_expr>
 
   // First find the 'if' keyword
   if tokens.is_empty() || !matches!(&tokens[0].token_type, lexing::TokenType::If(_)) {
-    return None;
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_expression("Expected 'if' keyword", pos));
   }
 
   // Find the '?' token
@@ -521,7 +735,10 @@ fn parse_if_expression(tokens: &[lexing::Token]) -> Option<Expr> {
   }
 
   if question_idx >= tokens.len() {
-    return None; // No '?' found
+    return Err(ParseError::invalid_expression(
+      "If expression requires '?' after condition",
+      tokens[0].end
+    ));
   }
 
   // Parse the condition
@@ -547,7 +764,10 @@ fn parse_if_expression(tokens: &[lexing::Token]) -> Option<Expr> {
   }
 
   if else_idx >= tokens.len() {
-    return None; // No 'else' found
+    return Err(ParseError::invalid_expression(
+      "If expression requires 'else' branch",
+      tokens[question_idx].end
+    ));
   }
 
   // Parse the then expression
@@ -558,20 +778,20 @@ fn parse_if_expression(tokens: &[lexing::Token]) -> Option<Expr> {
   let else_tokens = &tokens[(else_idx + 1)..];
   let else_expr = parse_expression(else_tokens)?;
 
-  Some(Expr::IfExpr {
+  Ok(Expr::IfExpr {
     cond: Box::new(cond),
     then_: Box::new(then_expr),
     else_: Box::new(else_expr),
   })
 }
 
-fn parse_string_template(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_string_template(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   // String template parsing
   // This is a simplified implementation - in a real parser you'd need to handle
   // the complex parsing of the template with expressions inside
 
   if tokens.is_empty() {
-    return None;
+    return Err(ParseError::invalid_expression("Empty template", 0));
   }
 
   // For now, we'll just handle a basic template
@@ -583,29 +803,43 @@ fn parse_string_template(tokens: &[lexing::Token]) -> Option<Expr> {
       crate::grama::gramma_rules::TemplatePart::Text(content.clone())
     ];
 
-    return Some(Expr::Template(parts));
+    return Ok(Expr::Template(parts));
   }
 
-  None
+  Err(ParseError::unexpected_token(
+    "string template",
+    &format!("{:?}", tokens[0].token_type),
+    tokens[0].start
+  ))
 }
 
-fn parse_index_access(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_index_access(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   // Array/object index access pattern: target[index]
-  if tokens.len() < 4 {
-    return None;
+  if tokens.len() < 3 {
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_expression("Index access requires target[index] syntax", pos));
   }
 
   // Parse the target expression (usually an identifier)
   let target = match &tokens[0].token_type {
     lexing::TokenType::Identifier(name) => Expr::Ident(name.clone()),
-    _ => return None,
+    _ => return Err(ParseError::unexpected_token(
+      "identifier",
+      &format!("{:?}", tokens[0].token_type),
+      tokens[0].start
+    )),
   };
 
   // Ensure the second token is a left bracket
   if !matches!(&tokens[1].token_type, lexing::TokenType::LeftBracket(_)) {
-    return None;
+    return Err(ParseError::unexpected_token(
+      "'['",
+      &format!("{:?}", tokens[1].token_type),
+      tokens[1].start
+    ));
   }
 
+  let opening_pos = tokens[1].start;
   // Find the matching right bracket
   let mut bracket_count = 1;
   let mut end_idx = 2;
@@ -619,8 +853,12 @@ fn parse_index_access(tokens: &[lexing::Token]) -> Option<Expr> {
     end_idx += 1;
   }
 
-  if bracket_count != 0 || end_idx <= 3 {
-    return None; // Unmatched brackets or empty brackets
+  if bracket_count != 0 {
+    return Err(ParseError::unmatched_delimiter(']', opening_pos, Some(opening_pos)));
+  }
+
+  if end_idx <= 3 {
+    return Err(ParseError::invalid_expression("Empty index brackets", opening_pos));
   }
 
   // Parse the index expression
@@ -628,13 +866,13 @@ fn parse_index_access(tokens: &[lexing::Token]) -> Option<Expr> {
   let index = parse_expression(index_tokens)?;
 
   // Create the index access expression
-  Some(Expr::Index {
+  Ok(Expr::Index {
     target: Box::new(target),
     index: Box::new(index),
   })
 }
 
-fn parse_find_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
+fn parse_find_comprehension(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   // Find comprehension pattern: expr & break for var of/in iter [if condition]
 
   // First find the '&' token and then 'break'
@@ -647,16 +885,27 @@ fn parse_find_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
   }
 
   if and_idx >= tokens.len() || and_idx == 0 {
-    return None;
+    let pos = if tokens.is_empty() { 0 } else { tokens[0].start };
+    return Err(ParseError::invalid_expression(
+      "Find comprehension requires '& break' pattern",
+      pos
+    ));
   }
 
   // Check if the next token is 'break'
   if and_idx + 1 >= tokens.len() {
-    return None;
+    return Err(ParseError::invalid_expression(
+      "Expected 'break' after '&'",
+      tokens[and_idx].end
+    ));
   }
 
   if !matches!(&tokens[and_idx + 1].token_type, lexing::TokenType::Break(_)) {
-    return None;
+    return Err(ParseError::unexpected_token(
+      "'break'",
+      &format!("{:?}", tokens[and_idx + 1].token_type),
+      tokens[and_idx + 1].start
+    ));
   }
 
   // Parse the select expression
@@ -669,8 +918,8 @@ fn parse_find_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
 
   // We'll reuse the array comprehension logic for the rest of the parsing
   // and convert it to a find comprehension at the end
-  if let Some(Expr::ArrayComp(array_comp)) = parse_array_comprehension(for_tokens) {
-    return Some(Expr::FindComp(crate::grama::gramma_rules::FindComp {
+  if let Ok(Expr::ArrayComp(array_comp)) = parse_array_comprehension(for_tokens) {
+    return Ok(Expr::FindComp(crate::grama::gramma_rules::FindComp {
       select: Box::new(select_expr),
       var: array_comp.var,
       mode: array_comp.mode,
@@ -679,5 +928,8 @@ fn parse_find_comprehension(tokens: &[lexing::Token]) -> Option<Expr> {
     }));
   }
 
-  None
+  Err(ParseError::invalid_expression(
+    "Invalid find comprehension syntax",
+    tokens[and_idx].start
+  ))
 }

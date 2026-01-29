@@ -5,3 +5,11 @@ edition = "2024"
 
 [dependencies]
 regex="1"
+
+[lib]
+name = "c_env_lang"
+path = "src/lib.rs"
+
+[[bin]]
+name = "c_env_lang"
+path = "src/main.rs"

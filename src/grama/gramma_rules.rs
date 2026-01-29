@@ -6,6 +6,7 @@ pub struct Program {
 #[derive(Debug, Clone)]
 pub enum Stmt {
     VarDecl { private_: bool, name: Ident, value: Expr },
+    Assignment { target: Ident, value: Expr },
     ExprStmt(Expr),
 }
 

@@ -1,0 +1,44 @@
+// Test Phase 2.2 - Built-in Functions
+
+// Print function
+print("Hello, World!")
+print(42)
+print(true)
+
+// Variables and print
+private name = "Alice"
+private age = 30
+print("Name:", name)
+print("Age:", age)
+
+// Type function
+print("Type of name:", type(name))
+print("Type of age:", type(age))
+print("Type of true:", type(true))
+
+// Len function
+print("Length of name:", len(name))
+private greeting = "Hello, World!"
+print("Length of greeting:", len(greeting))
+
+// Num function
+private strNum = "42"
+private converted = num(strNum)
+print("String:", strNum, "Converted:", converted)
+
+// Str function
+private number = 100
+print("Number as string:", str(number))
+
+// Bool function
+print("Bool of 0:", bool(0))
+print("Bool of 1:", bool(1))
+print("Bool of empty string:", bool(""))
+print("Bool of non-empty string:", bool("hello"))
+
+// Combined operations
+private total = num("10") + num("20")
+print("Total:", total)
+
+private message = "Result: " + str(total + 5)
+print(message)

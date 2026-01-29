@@ -46,6 +46,32 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
     while start < chars.len() {
         let current_char: char = chars[start];
 
+        // Handle single-line comments (//)
+        if current_char == '/' && start + 1 < chars.len() && chars[start + 1] == '/' {
+            let mut end = start + 2;
+            while end < chars.len() && chars[end] != '\n' {
+                end += 1;
+            }
+            // Skip the comment, don't create a token for it
+            start = end;
+            continue;
+        }
+
+        // Handle multi-line comments (/* */)
+        if current_char == '/' && start + 1 < chars.len() && chars[start + 1] == '*' {
+            let mut end = start + 2;
+            while end + 1 < chars.len() {
+                if chars[end] == '*' && chars[end + 1] == '/' {
+                    end += 2;
+                    break;
+                }
+                end += 1;
+            }
+            // Skip the comment, don't create a token for it
+            start = end;
+            continue;
+        }
+
         if current_char.is_whitespace() {
             if current_char == '\n' {
                 tokens.push(Token::without_value(TokenType::Eol("\n".to_string()), start, start + 1));
@@ -182,6 +208,7 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
         }
 
         if current_char == '/' {
+            // Division operator (comments are handled earlier)
             tokens.push(Token::without_value(TokenType::Divider("/".to_string()), start, start + 1));
             start += 1;
             continue;
@@ -194,20 +221,35 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
         }
 
         if current_char == '=' {
-            tokens.push(Token::without_value(TokenType::Assign("=".to_string()), start, start + 1));
-            start += 1;
+            if start + 1 < chars.len() && chars[start + 1] == '=' {
+                tokens.push(Token::without_value(TokenType::Equal("==".to_string()), start, start + 2));
+                start += 2;
+            } else {
+                tokens.push(Token::without_value(TokenType::Assign("=".to_string()), start, start + 1));
+                start += 1;
+            }
             continue;
         }
 
         if current_char == '>' {
-            tokens.push(Token::without_value(TokenType::GreaterThan(">".to_string()), start, start + 1));
-            start += 1;
+            if start + 1 < chars.len() && chars[start + 1] == '=' {
+                tokens.push(Token::without_value(TokenType::GreaterThanOrEqual(">=".to_string()), start, start + 2));
+                start += 2;
+            } else {
+                tokens.push(Token::without_value(TokenType::GreaterThan(">".to_string()), start, start + 1));
+                start += 1;
+            }
             continue;
         }
 
         if current_char == '<' {
-            tokens.push(Token::without_value(TokenType::LessThan("<".to_string()), start, start + 1));
-            start += 1;
+            if start + 1 < chars.len() && chars[start + 1] == '=' {
+                tokens.push(Token::without_value(TokenType::LessThanOrEqual("<=".to_string()), start, start + 2));
+                start += 2;
+            } else {
+                tokens.push(Token::without_value(TokenType::LessThan("<".to_string()), start, start + 1));
+                start += 1;
+            }
             continue;
         }
 
@@ -236,6 +278,12 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
 
         if current_char == '?' {
             tokens.push(Token::without_value(TokenType::QuestionMark("?".to_string()), start, start + 1));
+            start += 1;
+            continue;
+        }
+
+        if current_char == '.' {
+            tokens.push(Token::without_value(TokenType::Dot(".".to_string()), start, start + 1));
             start += 1;
             continue;
         }
