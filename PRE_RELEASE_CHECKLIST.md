@@ -56,11 +56,11 @@ If you want Homebrew support:
 git status
 
 # Tag the release
-git tag v0.1.0
+git tag v0.1.1
 
 # Push everything
 git push origin main
-git push origin v0.1.0
+git push origin v0.1.1
 ```
 
 - [ ] All changes committed
@@ -179,7 +179,7 @@ git push origin vX.Y.Z
 
 ```bash
 # Create and push release tag
-git tag v0.1.0 && git push origin v0.1.0
+git tag v0.1.1 && git push origin v0.1.1
 
 # Calculate SHA256 for Homebrew
 sha256sum <file>.tar.gz

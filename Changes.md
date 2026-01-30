@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Nothing yet
 
-## [0.1.0] - 2026-01-30
+## [0.1.1] - 2026-01-30
 
 ### Added
 
@@ -124,5 +124,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-[unreleased]: https://github.com/rzorzal/c.env.lang/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/rzorzal/c.env.lang/releases/tag/v0.1.0
+[unreleased]: https://github.com/rzorzal/c.env.lang/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/rzorzal/c.env.lang/releases/tag/v0.1.1

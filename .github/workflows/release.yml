@@ -51,17 +51,39 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build binary
-        uses: houseabsolute/actions-rust-release@v0
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          executable-name: cenv
-          target: ${{ matrix.platform.target }}
+          targets: ${{ matrix.platform.target }}
 
-      - name: Publish release artifacts
+      - name: Install cross-compilation tools
+        if: matrix.platform.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Build binary
+        run: cargo build --release --target ${{ matrix.platform.target }}
+
+      - name: Package binary (Unix)
+        if: matrix.platform.os != 'windows-latest'
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          tar czf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+          cd ../../..
+
+      - name: Package binary (Windows)
+        if: matrix.platform.os == 'windows-latest'
+        run: |
+          cd target/${{ matrix.platform.target }}/release
+          7z a ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+          cd ../../..
+
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: cenv-${{ matrix.platform.os_name }}
-          path: "cenv-*"
+          path: ${{ matrix.platform.name }}
 
   create-release:
     name: Create Release
