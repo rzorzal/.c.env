@@ -1,0 +1,10 @@
+// Production environment configuration
+
+// Public variables (exported to .env)
+API_URL = "https://prod.api.example.com"
+DATABASE_URL = "postgresql://prod-db.example.com:5432/myapp"
+DEBUG_MODE = false
+LOG_LEVEL = "error"
+
+// Private variables (internal use only)
+private internal_cache_ttl = 3600

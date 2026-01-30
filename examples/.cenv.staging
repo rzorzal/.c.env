@@ -1,0 +1,10 @@
+// Staging environment configuration
+
+// Public variables (exported to .env)
+API_URL = "https://staging.api.example.com"
+DATABASE_URL = "postgresql://staging-db.example.com:5432/myapp"
+DEBUG_MODE = true
+LOG_LEVEL = "debug"
+
+// Private variables (internal use only)
+private internal_cache_ttl = 60

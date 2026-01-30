@@ -1,0 +1,6 @@
+// Shared configuration file for testing imports
+private api_version = "1.0.0"
+private max_retries = 3
+private timeout = 30
+
+print("Config loaded: API version", api_version)

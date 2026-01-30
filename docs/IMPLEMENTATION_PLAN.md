@@ -1,7 +1,25 @@
-# C.env Language - Grammar Implementation Plan
+# C.env Language - .env File Compiler Implementation Plan
 
 **Created:** 2026-01-29
-**Goal:** Systematically implement missing grammar features and parser improvements
+**Updated:** 2026-01-29
+**Purpose:** C.env is a `.env` file compiler that generates environment configuration from `.cenv` source files
+**Goal:** Systematically implement features for module-based configuration compilation
+
+---
+
+## 🎯 Project Purpose
+
+C.env compiles `.cenv` source files into `.env` files for different environments. It uses a `--module` argument to dynamically load environment-specific configurations through expression-based imports.
+
+### Key Concepts
+
+- **Source Files**: `.cenv` files with JavaScript-like syntax
+- **Output**: `.env` files (generated from running .cenv)
+- **Module System**: `--module=production` sets the `module` variable
+- **Dynamic Imports**: `import('./.cenv.' + module)` loads environment-specific config
+- **Public Variables**: Variables without `private` keyword appear in .env output
+- **Private Variables**: Variables with `private` keyword are for internal use only
+- **Use Case**: Manage configurations for production, staging, development, client-specific environments, etc.
 
 ---
 
@@ -98,12 +116,51 @@
 
 **Test Results:** 68 tests passing (30 from Phase 1-2.1 + 38 new for Phase 2.2)
 
-#### 2.3 Import Statements
+#### 2.3 Import Statements & Module System ⭐ UPDATED
 
-- [ ] Add `Stmt::Import { path: String, alias: Option<Ident> }` to AST
-- [ ] Implement `parse_import_statement` for `import(path)`
-- [ ] Add `Expr::ImportAwsSecret(String)` for `import_aws_secret(path)`
-- [ ] Add tests with example files
+- [x] Add `Stmt::Import { path: Expr, is_aws_secret: bool, alias: Option<Ident> }` to AST
+- [x] Changed import path from String to Expr to support dynamic imports
+- [x] Implement `parse_import_statement` for `import(path)` and `import_aws_secret(path)`
+- [x] Parse path as expression (not just string literal) to support `import('./.cenv.' + module)`
+- [x] Implement file loading and execution in evaluator
+- [x] Add circular import detection
+- [x] Add variable sharing between files
+- [x] **Module Variable**: Added `--module=value` argument support
+- [x] **Module Variable**: Special `module` variable automatically defined in environment
+- [x] **Dynamic Imports**: Expression-based imports enable `import('./.cenv.' + module)`
+- [x] Created 4 example import files in `examples/imports/`
+- [x] Add comprehensive test suite (14 tests in imports.rs)
+- [x] Updated documentation: `docs/language-reference/statements.md`
+- [x] Updated README to reflect .env compiler purpose
+
+**Implementation Details:**
+
+- **Module System**: `--module=production` sets `module` variable to `"production"`
+- **Expression Imports**: Import path evaluated at runtime as expression
+- **Dynamic Configuration**: Load different configs based on module value
+- **Public vs Private Variables**:
+  - Public variables (no `private` keyword): `API_URL = "..."` → appears in .env output
+  - Private variables (`private` keyword): `private temp = 123` → internal use only
+- **Output Format**: Generates .env file format with public variables only
+- Import statements execute imported files and make variables available
+- Circular imports detected using canonical path tracking
+- Files executed in their own directory (proper base path handling)
+- AWS secret imports show placeholder message (future feature)
+- Variable shadowing: imported values overwrite existing variables
+
+**Use Case Example:**
+
+```bash
+# Compile for production
+./c_env_lang config.cenv --module=production
+# Loads .cenv.production via import('./.cenv.' + module)
+
+# Compile for staging
+./c_env_lang config.cenv --module=staging
+# Loads .cenv.staging
+```
+
+**Test Results:** 82 tests passing (68 from Phases 1-2.2 + 14 new for Phase 2.3)
 
 #### 2.4 Block Statements
 

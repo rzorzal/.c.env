@@ -1,0 +1,5 @@
+// Utility functions defined in a separate file
+private PI = 3.14159
+
+private function_name = "calculateCircleArea"
+print("Utils loaded:", function_name)

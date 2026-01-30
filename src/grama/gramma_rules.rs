@@ -7,6 +7,7 @@ pub struct Program {
 pub enum Stmt {
     VarDecl { private_: bool, name: Ident, value: Expr },
     Assignment { target: Ident, value: Expr },
+    Import { path: Expr, is_aws_secret: bool, alias: Option<Ident> },
     ExprStmt(Expr),
 }
 

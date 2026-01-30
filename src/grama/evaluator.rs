@@ -1,6 +1,8 @@
 use crate::grama::gramma_rules::{Expr, Stmt, Program, BinOp, UnaryOp, TemplatePart};
 use crate::grama::value::Value;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::fs;
 
 /// Runtime errors that can occur during evaluation
 #[derive(Debug, Clone)]
@@ -86,13 +88,38 @@ impl Environment {
 pub struct Evaluator {
     env: Environment,
     output: Vec<String>,
+    public_vars: HashMap<String, Value>, // Variables that appear in .env output (without 'private')
+    base_path: PathBuf,
+    imported_files: HashMap<String, ()>, // Track imported files to prevent circular imports
 }
 
 impl Evaluator {
     pub fn new() -> Self {
+        Self::with_module(None)
+    }
+
+    pub fn with_module(module: Option<String>) -> Self {
+        let mut env = Environment::new();
+        // If module is provided, add it as a special variable
+        if let Some(module_val) = module {
+            env.define("module".to_string(), Value::String(module_val));
+        }
+        Self {
+            env,
+            output: Vec::new(),
+            public_vars: HashMap::new(),
+            base_path: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            imported_files: HashMap::new(),
+        }
+    }
+
+    pub fn with_base_path(base_path: PathBuf) -> Self {
         Self {
             env: Environment::new(),
             output: Vec::new(),
+            public_vars: HashMap::new(),
+            base_path,
+            imported_files: HashMap::new(),
         }
     }
 
@@ -107,16 +134,59 @@ impl Evaluator {
         Ok(self.output.clone())
     }
 
+    /// Get public variables formatted as .env file content
+    pub fn get_env_output(&self) -> Vec<String> {
+        let mut result: Vec<String> = self.public_vars
+            .iter()
+            .map(|(name, value)| format!("{}={}", name, self.format_env_value(value)))
+            .collect();
+        result.sort(); // Sort for consistent output
+        result
+    }
+
+    /// Format a value for .env file (quoted if needed)
+    fn format_env_value(&self, value: &Value) -> String {
+        match value {
+            Value::String(s) => {
+                // Quote strings that contain spaces or special characters
+                if s.contains(' ') || s.contains('=') || s.contains('"') {
+                    format!("\"{}\""  , s.replace('"', "\\\""))
+                } else {
+                    s.clone()
+                }
+            },
+            Value::Number(n) => n.to_string(),
+            Value::Bool(b) => b.to_string(),
+            Value::Null => String::new(),
+            Value::Array(_) => "[]".to_string(), // Basic array representation
+        }
+    }
+
     fn eval_statement(&mut self, stmt: &Stmt) -> EvalResult<()> {
         match stmt {
-            Stmt::VarDecl { name, value, .. } => {
+            Stmt::VarDecl { name, value, private_ } => {
                 let val = self.eval_expr(value)?;
-                self.env.define(name.clone(), val);
+                self.env.define(name.clone(), val.clone());
+                // If not private, add to public_vars for .env output
+                if !private_ {
+                    self.public_vars.insert(name.clone(), val);
+                }
                 Ok(())
             }
             Stmt::Assignment { target, value } => {
                 let val = self.eval_expr(value)?;
                 self.env.assign(target, val)
+            }
+            Stmt::Import { path, is_aws_secret, .. } => {
+                // Evaluate the path expression to get the actual path string
+                let path_value = self.eval_expr(path)?;
+                let path_str = match path_value {
+                    Value::String(s) => s,
+                    _ => return Err(RuntimeError::new(
+                        format!("Import path must be a string, got {}", path_value.type_name())
+                    )),
+                };
+                self.eval_import(&path_str, *is_aws_secret)
             }
             Stmt::ExprStmt(expr) => {
                 self.eval_expr(expr)?;
@@ -398,5 +468,66 @@ impl Evaluator {
             }
             _ => false,
         }
+    }
+
+    fn eval_import(&mut self, path: &str, is_aws_secret: bool) -> EvalResult<()> {
+        // Check if this is an AWS secret import
+        if is_aws_secret {
+            // For now, we'll just store a placeholder value
+            // In a real implementation, this would fetch from AWS Secrets Manager
+            self.output.push(format!("Note: import_aws_secret('{}') would fetch from AWS Secrets Manager", path));
+            return Ok(());
+        }
+
+        // Resolve the file path relative to base_path
+        let file_path = if Path::new(path).is_absolute() {
+            PathBuf::from(path)
+        } else {
+            self.base_path.join(path)
+        };
+
+        // Canonicalize the path to detect circular imports reliably
+        let canonical_path = file_path.canonicalize().map_err(|e| {
+            RuntimeError::new(format!("Failed to resolve import file '{}': {}", path, e))
+        })?;
+
+        let canonical_str = canonical_path.to_string_lossy().to_string();
+
+        // Check for circular imports
+        if self.imported_files.contains_key(&canonical_str) {
+            return Err(RuntimeError::new(format!("Circular import detected: '{}'", path)));
+        }
+
+        // Mark as importing (to detect circular imports)
+        self.imported_files.insert(canonical_str.clone(), ());
+
+        // Read the file
+        let source = fs::read_to_string(&canonical_path).map_err(|e| {
+            RuntimeError::new(format!("Failed to read import file '{}': {}", path, e))
+        })?;
+
+        // Lex and parse the imported file
+        let tokens = crate::lexing::analyze_code(&source);
+        let program = crate::grama::build_statements(&tokens).map_err(|e| {
+            RuntimeError::new(format!("Failed to parse import file '{}': {}", path, e))
+        })?;
+
+        // Save the current base path
+        let original_base = self.base_path.clone();
+
+        // Update base path to the imported file's directory
+        if let Some(parent) = canonical_path.parent() {
+            self.base_path = parent.to_path_buf();
+        }
+
+        // Execute the imported program
+        for stmt in &program.items {
+            self.eval_statement(stmt)?;
+        }
+
+        // Restore original base path
+        self.base_path = original_base;
+
+        Ok(())
     }
 }

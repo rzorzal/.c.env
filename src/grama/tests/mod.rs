@@ -20,4 +20,7 @@ mod statements;
 mod assignments;
 
 #[cfg(test)]
+mod imports;
+
+#[cfg(test)]
 mod evaluator_tests;

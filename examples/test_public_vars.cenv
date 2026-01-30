@@ -1,0 +1,17 @@
+// Test public vs private variables
+private internal_temp = 100
+
+// Public variables (no private keyword) - these appear in .env
+API_URL = "https://api.example.com"
+DATABASE_NAME = "myapp_prod"
+PORT = 8080
+DEBUG = false
+
+// Private calculation
+private calculated = PORT + 1000
+
+// Another public variable using private variable
+MAX_CONNECTIONS = calculated
+
+print("Compiled successfully!")
+print("API URL:", API_URL)

@@ -1,0 +1,4 @@
+// Test AWS secret import placeholder
+import_aws_secret("my-app/database-credentials")
+
+print("AWS secret import requested")

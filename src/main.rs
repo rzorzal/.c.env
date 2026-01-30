@@ -24,11 +24,23 @@ fn main() {
         }
     };
 
-    // Check for --debug flag
-    let debug_mode = args.len() > 2 && args[2] == "--debug";
+    // Check for --debug and --module flags
+    let mut debug_mode = false;
+    let mut module_value: Option<String> = None;
+
+    for arg in &args[2..] {
+        if arg == "--debug" {
+            debug_mode = true;
+        } else if arg.starts_with("--module=") {
+            module_value = Some(arg[9..].to_string()); // Skip "--module="
+        }
+    }
 
     if debug_mode {
         println!("Filename: {}", filename);
+        if let Some(ref m) = module_value {
+            println!("Module: {}", m);
+        }
         println!("File contents:\n{}\n", contents);
         println!("Analyzing code...\n");
     }
@@ -63,12 +75,23 @@ fn main() {
         println!("Executing program...\n");
     }
 
-    let mut evaluator = grama::Evaluator::new();
+    let mut evaluator = grama::Evaluator::with_module(module_value);
     match evaluator.eval_program(&program) {
         Ok(outputs) => {
             // Print all output lines (from print() calls)
             for output in outputs {
                 println!("{}", output);
+            }
+
+            // Print .env formatted public variables (if any)
+            let env_output = evaluator.get_env_output();
+            if !env_output.is_empty() {
+                if debug_mode {
+                    println!("\n# .env output:");
+                }
+                for line in env_output {
+                    println!("{}", line);
+                }
             }
         }
         Err(err) => {

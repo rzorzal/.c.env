@@ -1,6 +1,10 @@
 # C.env Language
 
-A configuration and environment language with JavaScript-like syntax, strong typing, and proper operator precedence.
+A `.env` file compiler that generates environment configuration files from `.cenv` source files with JavaScript-like syntax, module-based imports, and strong typing.
+
+## 🎯 Purpose
+
+C.env compiles `.cenv` source files into `.env` files for different environments (production, staging, development, etc.) using a `--module` argument to control which configuration to load.
 
 ## 🚀 Quick Start
 
@@ -8,8 +12,11 @@ A configuration and environment language with JavaScript-like syntax, strong typ
 # Build the project
 cargo build --release
 
-# Run a C.env file
-./target/release/c_env_lang examples/.c.env.hello
+# Compile a .cenv file for production environment
+./target/release/c_env_lang examples/config.cenv --module=production
+
+# Compile for staging environment
+./target/release/c_env_lang examples/config.cenv --module=staging
 ```
 
 ## 📚 Documentation
@@ -18,35 +25,119 @@ cargo build --release
 
 - **[Getting Started](docs/getting-started/README.md)** - Installation and first steps
 - **[Language Reference](docs/language-reference/README.md)** - Complete syntax and features
-- **[Examples](docs/examples/README.md)** - Code examples and use cases
-- **[FAQ](docs/faq.md)** - Frequently asked questions
+- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Commands & syntax quick reference
+- **[Examples](examples/README.md)** - Code examples and working demos
+- **[Implementation Summary](docs/PUBLIC_PRIVATE_VARS_SUMMARY.md)** - Public/private variables details
 
 ## ✨ Features
 
-- ✅ **Variables** - Private variable declarations
-- ✅ **Assignments** - Reassign variable values
+- ✅ **Public/Private Variables** - Control which variables appear in the .env output ⭐ NEW
+- ✅ **Module Variable** - Special `module` variable set via `--module=value` argument
+- ✅ **Dynamic Imports** - Import files based on module: `import('./.cenv.' + module)`
 - ✅ **Data Types** - Numbers, strings, booleans, null
-- ✅ **Operators** - Full set with correct precedence
+- ✅ **Template Strings** - String interpolation with `"text ${variable} text"`
+- ✅ **Operators** - Full set with correct precedence (including string concatenation)
 - ✅ **Comments** - Single-line (`//`) and multi-line (`/* */`)
 - ✅ **Error Handling** - Clear, helpful error messages
-- ✅ **Built-in Functions** - print(), type(), len(), num(), str(), bool() ⭐ NEW
-- ✅ **Runtime Evaluation** - Execute programs with proper error handling ⭐ NEW
+
+### Public vs Private Variables
+
+**Public variables** (no `private` keyword) are exported to the `.env` file:
+
+```cenv
+API_URL = "https://api.example.com"  // ✅ Exported to .env
+PORT = 8080                          // ✅ Exported to .env
+```
+
+**Private variables** (with `private` keyword) are for internal calculations only:
+
+```cenv
+private max_pool = 20      // ❌ Not exported to .env
+private min_pool = 5       // ❌ Not exported to .env
+POOL_SIZE = max_pool       // ✅ Exported to .env (value: 20)
+```
+
+- ✅ **Built-in Functions** - print(), type(), len(), num(), str(), bool()
+- ✅ **Import Statements** - Load and share code across files with expression support
+- ✅ **Runtime Evaluation** - Execute programs with proper error handling
 
 ## 📖 Example
 
+### Module-Based .env Compilation
+
+C.env allows you to maintain different environment configurations and compile them to `.env` files.
+
+#### Main Configuration: `examples/config.cenv`
+
 ```javascript
-// config.c.env
-private appName = "MyApp"
-private port = 8080
-private debug = false
+// Import environment-specific config based on module
+import("examples/.cenv." + module)
 
-// Print values
-print("App:", appName)
-print("Port:", port)
+// Private variables for internal calculations
+private max_pool_size = 20
+private min_pool_size = 5
 
-// Reassign values
-port = 3000
-debug = true
+// Public variables exported to .env
+APP_NAME = "MyApplication"
+APP_VERSION = "1.0.0"
+PORT = 3000
+
+// Calculated public variable using private variable
+DATABASE_POOL_SIZE = max_pool_size
+
+// Using imported variables
+ENVIRONMENT = module
+
+print("Compiling .env for environment:", module)
+print("API URL:", API_URL)
+```
+
+#### Environment-Specific Files
+
+```javascript
+// examples/.cenv.production
+API_URL = "https://prod.api.example.com"
+DATABASE_URL = "postgresql://prod-db.example.com:5432/myapp"
+DEBUG_MODE = false
+LOG_LEVEL = "error"
+
+private internal_cache_ttl = 3600
+```
+
+```javascript
+// examples/.cenv.staging
+API_URL = "https://staging.api.example.com"
+DATABASE_URL = "postgresql://staging-db.example.com:5432/myapp"
+DEBUG_MODE = true
+LOG_LEVEL = "debug"
+
+private internal_cache_ttl = 60
+```
+
+#### Compilation
+
+```bash
+# Compile for production
+./target/release/c_env_lang examples/config.cenv --module=production
+
+# Output (print statements):
+# Compiling .env for environment: production
+# API URL: https://prod.api.example.com
+
+# Output (.env format):
+# API_URL=https://prod.api.example.com
+# APP_NAME=MyApplication
+# APP_VERSION=1.0.0
+# DATABASE_POOL_SIZE=20
+# DATABASE_URL=postgresql://prod-db.example.com:5432/myapp
+# DEBUG_MODE=false
+# ENVIRONMENT=production
+# LOG_LEVEL=error
+# PORT=3000
+
+# Generate .env file (skip warnings and print statements)
+cargo run examples/config.cenv --module=production 2>/dev/null | tail -n +4 > .env
+```
 
 // Built-in functions
 print("Type of port:", type(port))
@@ -54,18 +145,44 @@ print("Port as string:", str(port))
 
 // Calculations
 private maxUsers = 100
-private bufferSize = maxUsers * 1024
+private bufferSize = maxUsers \* 1024
 print("Buffer size:", bufferSize)
 
 // Type conversion
 private userInput = "42"
 private value = num(userInput)
 print("Converted value:", value)
+
+// Import from other files
+import("config.cenv")
+print("Loaded config:", api_url)
+
+````
+
+### Module-Based Import Example
+
+```javascript
+// config.cenv - Main configuration file
+import("./.cenv." + module)  // Dynamically import based on --module argument
+print("Loaded config for:", module)
+````
+
+```javascript
+// .cenv.production
+private api_url = "https://api.example.com"
+private timeout = 30
+private max_retries = 3
+```
+
+```bash
+# Compile with module
+./target/release/c_env_lang config.cenv --module=production
+# Output: Loaded config for: production
 ```
 
 ## 🏗️ Project Status
 
-**Phase 1 Complete!** ✅ **Phase 2.1 Complete!** ✅ **Phase 2.2 Complete!** ✅
+**Phase 1 Complete!** ✅ **Phase 2.1 Complete!** ✅ **Phase 2.2 Complete!** ✅ **Phase 2.3 Complete!** ✅
 
 - ✅ Error infrastructure with helpful messages
 - ✅ Lexer with comments and multi-char operators
@@ -73,7 +190,8 @@ print("Converted value:", value)
 - ✅ Assignment statements for variable mutation
 - ✅ Runtime evaluator with environment management
 - ✅ Built-in functions (print, type, len, num, str, bool)
-- ✅ Comprehensive test suite (68 tests passing)
+- ✅ Import statements for code organization
+- ✅ Comprehensive test suite (82 tests passing)
 - ✅ Modular test organization (separate files per feature)
 
 See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the full roadmap.

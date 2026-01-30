@@ -1,0 +1,11 @@
+// Main file that imports other modules
+import("examples/imports/config.cenv")
+import("examples/imports/utils.cenv")
+
+print("Main program starting...")
+print("Using API version:", api_version)
+print("Using timeout:", timeout)
+print("Using PI:", PI)
+
+private result = PI * 2
+print("Result:", result)

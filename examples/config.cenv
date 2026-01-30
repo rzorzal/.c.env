@@ -1,0 +1,23 @@
+// Main configuration file - compiles to .env based on module
+
+// Import environment-specific config
+import("examples/.cenv." + module)
+
+// Private variables for internal calculations
+private max_pool_size = 20
+private min_pool_size = 5
+
+// Public variables that appear in .env
+APP_NAME = "MyApplication"
+APP_VERSION = "1.0.0"
+PORT = 3000
+
+// Calculated public variable using private variable
+DATABASE_POOL_SIZE = max_pool_size
+
+// Environment info (using imported variable)
+ENVIRONMENT = module
+
+print("Compiling .env for environment:", module)
+print("API URL:", API_URL)
+print("Debug mode:", DEBUG_MODE)
