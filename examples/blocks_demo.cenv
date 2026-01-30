@@ -1,0 +1,64 @@
+// Block Statements Example
+// Demonstrates how to use blocks in c.env.lang
+
+// Simple block - grouping statements together
+{
+    private temp = 10
+    private multiplier = 2
+    BASE_VALUE = temp * multiplier
+}
+
+print("BASE_VALUE set to:")
+print(BASE_VALUE)
+
+// Nested blocks - arbitrary depth supported
+{
+    private a = 5
+    {
+        private b = 3
+        {
+            private c = 2
+            CALCULATED = a * b + c
+        }
+    }
+}
+
+print("CALCULATED value:")
+print(CALCULATED)
+
+// Blocks with mixed visibility
+{
+    private internal_config = "production"
+    private port = 5432
+
+    // Public variables appear in .env output
+    DATABASE_URL = "postgres://localhost:" + str(port) + "/mydb"
+    API_MODE = internal_config
+}
+
+print("Configuration set:")
+print(DATABASE_URL)
+print(API_MODE)
+
+// Empty blocks are valid (useful for future conditional logic)
+{}
+
+print("Empty block executed successfully")
+
+// Variables from blocks are accessible outside
+{
+    SHARED_VALUE = 42
+}
+
+result = SHARED_VALUE + 8
+print("Result using shared value:")
+print(result)
+
+// Future use case - conditional blocks (not yet implemented)
+// if module == "production" {
+//     DATABASE_URL = "postgres://prod-server/db"
+//     LOG_LEVEL = "error"
+// } else {
+//     DATABASE_URL = "postgres://localhost/dev_db"
+//     LOG_LEVEL = "debug"
+// }

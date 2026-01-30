@@ -6,26 +6,40 @@ A `.env` file compiler that generates environment configuration files from `.cen
 
 C.env compiles `.cenv` source files into `.env` files for different environments (production, staging, development, etc.) using a `--module` argument to control which configuration to load.
 
+## � Installation
+
+### Quick Install (Recommended)
+
+```bash
+curl -sSf https://raw.githubusercontent.com/yourusername/c.env.lang/main/install.sh | bash
+```
+
+### Package Managers
+
+```bash
+# Homebrew (macOS/Linux)
+brew install yourusername/cenv/cenv
+
+# From source with Cargo
+cargo install --git https://github.com/yourusername/c.env.lang
+```
+
+**[Complete Installation Guide →](INSTALL.md)** - More installation options including APT, pre-built binaries, and building from source.
+
 ## 🚀 Quick Start
 
 ```bash
-# Build the project
-cargo build --release
-
 # Compile and generate .env file (with production module variable)
-./target/release/cenv examples/config.cenv --module=production
+cenv examples/config.cenv --module=production
 
 # Compile and generate .env file (with staging module variable)
-./target/release/cenv examples/config.cenv --module=staging
+cenv examples/config.cenv --module=staging
 
 # Custom output filename
-./target/release/cenv examples/config.cenv --module=production --output=.env.production
+cenv examples/config.cenv --module=production --output=.env.production
 
 # Dry run - output to stdout without creating file
-./target/release/cenv examples/config.cenv --module=production --dry
-
-# Or using cargo run
-cargo run --quiet -- examples/config.cenv --module=production
+cenv examples/config.cenv --module=production --dry
 
 # Get help
 cenv --help

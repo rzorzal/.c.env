@@ -144,6 +144,12 @@ impl Evaluator {
         result
     }
 
+    /// Get public variables for testing
+    #[cfg(test)]
+    pub fn get_public_vars(&self) -> &HashMap<String, Value> {
+        &self.public_vars
+    }
+
     /// Format a value for .env file (quoted if needed)
     fn format_env_value(&self, value: &Value) -> String {
         match value {
@@ -184,6 +190,14 @@ impl Evaluator {
                 Err(RuntimeError::new(
                     format!("{}() must be assigned to a variable. Use: private var = {}(\"path\")", fn_name, fn_name)
                 ))
+            }
+            Stmt::Block(statements) => {
+                // Execute each statement in the block
+                // Blocks share the same scope (no new scope created)
+                for stmt in statements {
+                    self.eval_statement(stmt)?;
+                }
+                Ok(())
             }
             Stmt::ExprStmt(expr) => {
                 self.eval_expr(expr)?;

@@ -11,11 +11,19 @@ use super::expression_parser;
 pub fn build_statements(lex_vec: &[lexing::Token]) -> ParseResult<Program> {
   let mut stmts: Vec<Vec<lexing::Token>> = Vec::new();
   let mut stmt: Vec<lexing::Token> = Vec::new();
+  let mut brace_depth: i32 = 0; // Track nesting depth of braces
 
   for token in lex_vec {
+    // Track brace depth to know when we're inside a block
     match &token.token_type {
-      lexing::TokenType::Eol(_) => {
-        // End of line, push current statement to stmts
+      lexing::TokenType::LeftBrace(_) => brace_depth += 1,
+      lexing::TokenType::RightBrace(_) => brace_depth = brace_depth.saturating_sub(1),
+      _ => {}
+    }
+
+    match &token.token_type {
+      lexing::TokenType::Eol(_) if brace_depth == 0 => {
+        // End of line (only split if not inside braces)
         if !stmt.is_empty() {
           stmts.push(stmt);
           stmt = Vec::new(); // Start a new statement

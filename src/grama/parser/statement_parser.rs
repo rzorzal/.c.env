@@ -19,15 +19,16 @@ pub(super) fn parse_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
     lexing::TokenType::Import(_) | lexing::TokenType::ImportAwsSecret(_) => {
       parse_import_statement(tokens)
     }
+    lexing::TokenType::LeftBrace(_) => {
+      parse_block_statement(tokens)
+    }
     _ => {
       // Check if it's an assignment or public variable declaration: identifier followed by '='
       if tokens.len() >= 2 {
         if let lexing::TokenType::Identifier(_name) = &tokens[0].token_type {
           if let lexing::TokenType::Assign(_) = &tokens[1].token_type {
-            // Could be either:
-            // 1. Variable declaration without 'private' (public variable): NAME = value
-            // 2. Assignment to existing variable: name = value
-            // We'll parse as declaration (public) and let the evaluator handle the distinction
+            // In C.env, 'identifier = value' without 'private' is a public variable declaration
+            // This handles both first-time declarations and reassignments
             return parse_var_declaration(tokens, false);
           }
         }
@@ -207,4 +208,82 @@ fn parse_import_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
     is_aws_secret,
     alias: None, // For now, we don't support aliases
   })
+}
+
+fn parse_block_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
+  // Block syntax: { stmt1 stmt2 ... }
+  if tokens.is_empty() {
+    return Err(ParseError::invalid_statement("Empty block statement", 0));
+  }
+
+  // Verify we start with a left brace
+  if !matches!(&tokens[0].token_type, lexing::TokenType::LeftBrace(_)) {
+    return Err(ParseError::unexpected_token(
+      "'{'",
+      &format!("{:?}", tokens[0].token_type),
+      tokens[0].start
+    ));
+  }
+
+  // Find the matching closing brace
+  let mut brace_count = 1;
+  let mut end_idx = 1;
+  while end_idx < tokens.len() && brace_count > 0 {
+    match &tokens[end_idx].token_type {
+      lexing::TokenType::LeftBrace(_) => brace_count += 1,
+      lexing::TokenType::RightBrace(_) => brace_count -= 1,
+      _ => {}
+    }
+    end_idx += 1;
+  }
+
+  if brace_count != 0 {
+    return Err(ParseError::unmatched_delimiter('}', tokens[0].start, Some(tokens[0].start)));
+  }
+
+  // Parse statements inside the block
+  let inner_tokens = &tokens[1..end_idx-1];
+
+  // Empty block is valid
+  if inner_tokens.is_empty() {
+    return Ok(Stmt::Block(vec![]));
+  }
+
+  // Split the inner tokens into individual statements (similar to build_statements)
+  let mut statements = Vec::new();
+  let mut current_start = 0;
+  let mut brace_depth: i32 = 0;
+
+  for (i, token) in inner_tokens.iter().enumerate() {
+    // Track brace depth for nested blocks
+    match &token.token_type {
+      lexing::TokenType::LeftBrace(_) => brace_depth += 1,
+      lexing::TokenType::RightBrace(_) => brace_depth = brace_depth.saturating_sub(1),
+      _ => {}
+    }
+
+    // Only split on Eol when not inside nested braces
+    if matches!(&token.token_type, lexing::TokenType::Eol(_)) && brace_depth == 0 {
+      // Parse the statement up to this point
+      if i > current_start {
+        let stmt_tokens = &inner_tokens[current_start..i];
+        if !stmt_tokens.is_empty() {
+          let stmt = parse_statement(stmt_tokens)?;
+          statements.push(stmt);
+        }
+      }
+      current_start = i + 1;
+    }
+  }
+
+  // Parse any remaining statement after the last newline
+  if current_start < inner_tokens.len() {
+    let stmt_tokens = &inner_tokens[current_start..];
+    if !stmt_tokens.is_empty() {
+      let stmt = parse_statement(stmt_tokens)?;
+      statements.push(stmt);
+    }
+  }
+
+  Ok(Stmt::Block(statements))
 }

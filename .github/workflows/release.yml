@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release - ${{ matrix.platform.os_name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - os_name: Linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            bin: c_env_lang
+            name: cenv-Linux-x86_64.tar.gz
+
+          - os_name: Linux-aarch64
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+            bin: c_env_lang
+            name: cenv-Linux-aarch64.tar.gz
+
+          - os_name: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            bin: c_env_lang
+            name: cenv-Darwin-x86_64.tar.gz
+
+          - os_name: macOS-aarch64
+            os: macOS-latest
+            target: aarch64-apple-darwin
+            bin: c_env_lang
+            name: cenv-Darwin-aarch64.tar.gz
+
+          - os_name: Windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: c_env_lang.exe
+            name: cenv-Windows-x86_64.zip
+
+    runs-on: ${{ matrix.platform.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build binary
+        uses: houseabsolute/actions-rust-release@v0
+        with:
+          executable-name: cenv
+          target: ${{ matrix.platform.target }}
+
+      - name: Publish release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cenv-${{ matrix.platform.os_name }}
+          path: "cenv-*"
+
+  create-release:
+    name: Create Release
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

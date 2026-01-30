@@ -25,17 +25,26 @@ pub fn extract_var_expr<'a>(program: &'a Program, var_name: &str) -> Option<&'a 
     })
 }
 
-/// Extract the expression from an assignment statement
+/// Extract the expression from an assignment statement or variable declaration
+/// Returns the LAST occurrence (useful for finding reassignments)
 pub fn extract_assignment_expr<'a>(program: &'a Program, var_name: &str) -> Option<&'a Expr> {
-    program.items.iter().find_map(|stmt| {
-        if let Stmt::Assignment { target, value } = stmt {
-            if target == var_name {
-                Some(value)
-            } else {
-                None
+    program.items.iter().rev().find_map(|stmt| {
+        match stmt {
+            Stmt::Assignment { target, value } => {
+                if target == var_name {
+                    Some(value)
+                } else {
+                    None
+                }
             }
-        } else {
-            None
+            Stmt::VarDecl { name, value, .. } => {
+                if name == var_name {
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+            _ => None
         }
     })
 }

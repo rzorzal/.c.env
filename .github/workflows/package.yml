@@ -1,0 +1,77 @@
+name: Package for Distributions
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  create-deb:
+    name: Create .deb package
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build and create .deb
+        run: |
+          chmod +x scripts/create-deb.sh
+          ./scripts/create-deb.sh ${{ steps.version.outputs.VERSION }} ${{ matrix.arch }}
+
+      - name: Upload .deb to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: cenv_*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-homebrew:
+    name: Update Homebrew Formula
+    runs-on: ubuntu-latest
+    needs: create-deb
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          # Download release artifacts to calculate SHA256
+          wget https://github.com/${{ github.repository }}/releases/download/v${VERSION}/cenv-Darwin-aarch64.tar.gz
+          wget https://github.com/${{ github.repository }}/releases/download/v${VERSION}/cenv-Darwin-x86_64.tar.gz
+          wget https://github.com/${{ github.repository }}/releases/download/v${VERSION}/cenv-Linux-x86_64.tar.gz
+          wget https://github.com/${{ github.repository }}/releases/download/v${VERSION}/cenv-Linux-aarch64.tar.gz
+
+          SHA_DARWIN_ARM=$(sha256sum cenv-Darwin-aarch64.tar.gz | awk '{print $1}')
+          SHA_DARWIN_X86=$(sha256sum cenv-Darwin-x86_64.tar.gz | awk '{print $1}')
+          SHA_LINUX_X86=$(sha256sum cenv-Linux-x86_64.tar.gz | awk '{print $1}')
+          SHA_LINUX_ARM=$(sha256sum cenv-Linux-aarch64.tar.gz | awk '{print $1}')
+
+          # Update formula - you'll need to commit this to a homebrew tap repo
+          echo "Homebrew formula needs manual update with these SHA256 values:"
+          echo "Darwin ARM64: $SHA_DARWIN_ARM"
+          echo "Darwin x86_64: $SHA_DARWIN_X86"
+          echo "Linux x86_64: $SHA_LINUX_X86"
+          echo "Linux ARM64: $SHA_LINUX_ARM"

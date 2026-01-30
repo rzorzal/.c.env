@@ -6,8 +6,9 @@ Complete reference for all statement types in C.env.
 
 1. [Variable Declarations](#variable-declarations)
 2. [Assignment Statements](#assignment-statements)
-3. [Expression Statements](#expression-statements)
-4. [Import Statements](#import-statements)
+3. [Block Statements](#block-statements)
+4. [Expression Statements](#expression-statements)
+5. [Import Statements](#import-statements)
 
 ---
 
@@ -144,6 +145,101 @@ x + y;
 - The result of the expression is not stored anywhere
 
 ---
+
+## Block Statements
+
+Block statements group multiple statements together using curly braces `{}`. They are primarily used with control flow structures like `if`, `while`, and `for` statements (when implemented).
+
+### Syntax
+
+```javascript
+{
+    statement1
+    statement2
+    ...
+}
+```
+
+### Examples
+
+```javascript
+// Simple block
+{
+    private x = 10
+    y = x + 5
+}
+
+// Nested blocks
+{
+    private a = 1
+    {
+        private b = 2
+        result = a + b
+    }
+}
+
+// Block with mixed variable visibility
+{
+    private temp = 100
+    FINAL_VALUE = temp * 2  // Public variable
+}
+
+// Empty block (valid)
+{
+}
+```
+
+### Scope Behavior
+
+**Important:** Blocks in C.env **share the same scope** as their parent context. Variables declared inside a block are accessible outside of it:
+
+```javascript
+{
+    private x = 10
+}
+print(x)  // ✅ Works! x is accessible here
+```
+
+This design choice is intentional for use with control flow:
+
+```javascript
+// Future if statement usage
+if condition {
+    DATABASE_URL = "postgres://prod/db"
+} else {
+    DATABASE_URL = "postgres://dev/db"
+}
+// DATABASE_URL is accessible here
+```
+
+### Variable Visibility
+
+Blocks respect the `private` keyword for `.env` output:
+
+```javascript
+{
+    private internal = "hidden"  // Not in .env output
+    PUBLIC_VAR = "visible"       // Appears in .env output
+}
+```
+
+### Use Cases
+
+1. **Grouping related statements** for organization
+2. **Control flow structures** (if/while/for - future feature)
+3. **Organizing configuration** logic
+
+### Notes
+
+- Empty blocks `{}` are valid and do nothing
+- Nested blocks are supported to any depth
+- All statements in the block share the same environment
+- Blocks do not create a new lexical scope
+- Blocks do not return values (statement-oriented, not expression-oriented)
+
+---
+
+## Expression Statements
 
 ## Import Statements
 
