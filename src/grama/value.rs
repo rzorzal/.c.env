@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 /// Runtime values produced by evaluating expressions
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -6,6 +8,7 @@ pub enum Value {
     Bool(bool),
     Null,
     Array(Vec<Value>),
+    Object(HashMap<String, Value>),
 }
 
 impl std::fmt::Display for Value {
@@ -32,6 +35,18 @@ impl std::fmt::Display for Value {
                 }
                 write!(f, "]")
             }
+            Value::Object(map) => {
+                write!(f, "{{")?;
+                let mut pairs: Vec<_> = map.iter().collect();
+                pairs.sort_by_key(|(k, _)| *k);
+                for (i, (key, value)) in pairs.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}: {}", key, value)?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -45,6 +60,7 @@ impl Value {
             Value::Number(n) => *n != 0.0,
             Value::String(s) => !s.is_empty(),
             Value::Array(a) => !a.is_empty(),
+            Value::Object(o) => !o.is_empty(),
         }
     }
 
@@ -56,6 +72,7 @@ impl Value {
             Value::Bool(_) => "boolean",
             Value::Null => "null",
             Value::Array(_) => "array",
+            Value::Object(_) => "object",
         }
     }
 }

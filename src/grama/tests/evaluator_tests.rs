@@ -167,7 +167,7 @@ len(num)
 "#;
         let err = eval_code_err(code);
         assert!(err.contains("Type error"));
-        assert!(err.contains("string or array"));
+        assert!(err.contains("string, array, or object"));
     }
 
     #[test]
@@ -406,12 +406,20 @@ print(x)
     }
 
     #[test]
-    fn test_assign_to_undefined() {
+    fn test_assign_creates_public_variable() {
+        // In .env context, `name = value` creates a public variable
         let code = r#"
-x = 10
+X_VAR = 10
 "#;
-        let err = eval_code_err(code);
-        assert!(err.contains("Undefined variable"));
+        let mut evaluator = Evaluator::with_module(None);
+        let tokens = crate::lexing::analyze_code(code);
+        let program = crate::grama::build_statements(&tokens).expect("Should parse");
+        let result = evaluator.eval_program(&program);
+        assert!(result.is_ok(), "Should succeed");
+
+        // Check that it's in the public variables
+        let env_output = evaluator.get_env_output();
+        assert!(env_output.iter().any(|line| line.starts_with("X_VAR=")));
     }
 
     #[test]

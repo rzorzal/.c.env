@@ -51,18 +51,34 @@ mod import_statement_tests {
     fn test_import_non_string_argument() {
         let code = r#"import(123)"#;
         let tokens = lexing::analyze_code(code);
-        let result = build_statements(&tokens);
+        let program = build_statements(&tokens);
 
-        assert!(result.is_err(), "Import with non-string argument should fail");
+        // Should parse successfully (import is now a function)
+        assert!(program.is_ok(), "Import with number should parse");
+
+        // But should fail at runtime
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program.unwrap());
+        assert!(result.is_err(), "Import with non-string should fail at runtime");
+        let err = result.unwrap_err();
+        assert!(err.message.contains("string") || err.message.contains("expects"));
     }
 
     #[test]
     fn test_import_multiple_arguments() {
         let code = r#"import("file1.cenv", "file2.cenv")"#;
         let tokens = lexing::analyze_code(code);
-        let result = build_statements(&tokens);
+        let program = build_statements(&tokens);
 
-        assert!(result.is_err(), "Import with multiple arguments should fail");
+        // Should parse successfully (import is now a function)
+        assert!(program.is_ok(), "Import with multiple args should parse");
+
+        // But should fail at runtime (wrong arg count)
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program.unwrap());
+        assert!(result.is_err(), "Import with wrong arg count should fail at runtime");
+        let err = result.unwrap_err();
+        assert!(err.message.contains("1") || err.message.contains("argument"));
     }
 }
 
@@ -102,18 +118,18 @@ mod import_execution_tests {
 
     #[test]
     fn test_import_variables_accessible() {
-        // Create a temporary file for testing
+        // Create a temporary file for testing - using PUBLIC variable
         std::fs::create_dir_all("test_imports_vars").ok();
-        std::fs::write("test_imports_vars/temp_config.cenv", "private x = 42\n").unwrap();
+        std::fs::write("test_imports_vars/temp_config.cenv", "X_VALUE = 42\n").unwrap();
 
         let code = r#"
 import("test_imports_vars/temp_config.cenv")
-print(x)
+print(X_VALUE)
 "#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
-        let mut evaluator = Evaluator::new();
+        let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program);
 
         // Clean up
@@ -178,21 +194,21 @@ print(x)
 
     #[test]
     fn test_multiple_imports() {
-        // Create two files
+        // Create two files with PUBLIC variables
         std::fs::create_dir_all("test_imports_multi").ok();
-        std::fs::write("test_imports_multi/file1.cenv", "private a = 10\n").unwrap();
-        std::fs::write("test_imports_multi/file2.cenv", "private b = 20\n").unwrap();
+        std::fs::write("test_imports_multi/file1.cenv", "A_VALUE = 10\n").unwrap();
+        std::fs::write("test_imports_multi/file2.cenv", "B_VALUE = 20\n").unwrap();
 
         let code = r#"
 import("test_imports_multi/file1.cenv")
 import("test_imports_multi/file2.cenv")
-private c = a + b
+private c = A_VALUE + B_VALUE
 print(c)
 "#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
-        let mut evaluator = Evaluator::new();
+        let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program);
 
         let is_ok = result.is_ok();
@@ -219,7 +235,7 @@ mod import_integration_tests {
     #[test]
     fn test_import_with_expressions() {
         std::fs::create_dir_all("test_imports_expr").ok();
-        std::fs::write("test_imports_expr/math.cenv", "private PI = 3.14\nprivate E = 2.71\n").unwrap();
+        std::fs::write("test_imports_expr/math.cenv", "PI = 3.14\nE = 2.71\n").unwrap();
 
         let code = r#"
 import("test_imports_expr/math.cenv")
@@ -230,7 +246,7 @@ print(circle_area > 70)
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
-        let mut evaluator = Evaluator::new();
+        let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program);
 
         std::fs::remove_dir_all("test_imports_expr").ok();
@@ -245,18 +261,18 @@ print(circle_area > 70)
     #[test]
     fn test_import_shadowing() {
         std::fs::create_dir_all("test_imports_shadow").ok();
-        std::fs::write("test_imports_shadow/shadowing.cenv", "private x = 100\n").unwrap();
+        std::fs::write("test_imports_shadow/shadowing.cenv", "X_VAR = 100\n").unwrap();
 
         let code = r#"
 private x = 1
 print("Before import:", x)
 import("test_imports_shadow/shadowing.cenv")
-print("After import:", x)
+print("After import:", X_VAR)
 "#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
-        let mut evaluator = Evaluator::new();
+        let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program);
 
         std::fs::remove_dir_all("test_imports_shadow").ok();
@@ -265,6 +281,146 @@ print("After import:", x)
         let output = result.unwrap();
         assert_eq!(output.len(), 2);
         assert_eq!(output[0], "Before import: 1");
-        assert_eq!(output[1], "After import: 100"); // Import overwrites
+        assert_eq!(output[1], "After import: 100");
+    }
+}
+
+#[cfg(test)]
+mod import_object_tests {
+    use super::*;
+
+    #[test]
+    fn test_import_returns_object() {
+        std::fs::create_dir_all("test_import_obj").ok();
+        std::fs::write("test_import_obj/config.cenv", "API_KEY = \"secret123\"\nAPI_URL = \"https://api.example.com\"\n").unwrap();
+
+        let code = r#"
+private config = import("test_import_obj/config.cenv")
+print(type(config))
+"#;
+        let tokens = lexing::analyze_code(code);
+        let program = build_statements(&tokens).unwrap();
+
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program);
+
+        std::fs::remove_dir_all("test_import_obj").ok();
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], "object");
+    }
+
+    #[test]
+    fn test_member_access_on_import() {
+        std::fs::create_dir_all("test_member_access").ok();
+        std::fs::write("test_member_access/db.cenv", "DATABASE_URL = \"postgresql://localhost/db\"\nDATABASE_PORT = 5432\n").unwrap();
+
+        let code = r#"
+private db = import("test_member_access/db.cenv")
+DATABASE_URL = db.DATABASE_URL
+print("URL:", db.DATABASE_URL)
+print("Port:", db.DATABASE_PORT)
+"#;
+        let tokens = lexing::analyze_code(code);
+        let program = build_statements(&tokens).unwrap();
+
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program);
+
+        std::fs::remove_dir_all("test_member_access").ok();
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output.len(), 2);
+        assert_eq!(output[0], "URL: postgresql://localhost/db");
+        assert_eq!(output[1], "Port: 5432");
+
+        // Check that DATABASE_URL was added to public variables
+        let env_output = evaluator.get_env_output();
+        assert!(env_output.iter().any(|line| line.starts_with("DATABASE_URL=")));
+    }
+
+    #[test]
+    fn test_import_only_public_vars() {
+        std::fs::create_dir_all("test_public_only").ok();
+        std::fs::write("test_public_only/vars.cenv",
+            "PUBLIC_VAR = \"visible\"\nprivate PRIVATE_VAR = \"hidden\"\n").unwrap();
+
+        let code = r#"
+private vars = import("test_public_only/vars.cenv")
+print("Length:", len(vars))
+"#;
+        let tokens = lexing::analyze_code(code);
+        let program = build_statements(&tokens).unwrap();
+
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program);
+
+        std::fs::remove_dir_all("test_public_only").ok();
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output.len(), 1);
+        assert_eq!(output[0], "Length: 1"); // Only PUBLIC_VAR should be in the object
+    }
+
+    #[test]
+    fn test_aws_secret_returns_object() {
+        let code = r#"
+private aws_vars = import_aws_secret("my-secret")
+print("Type:", type(aws_vars))
+"#;
+        let tokens = lexing::analyze_code(code);
+        let program = build_statements(&tokens).unwrap();
+
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program);
+
+        assert!(result.is_ok());
+        let output = result.unwrap();
+        assert_eq!(output.len(), 2); // Note message + Type print
+        assert!(output[0].contains("import_aws_secret"));
+        assert_eq!(output[1], "Type: object");
+    }
+
+    #[test]
+    fn test_member_access_error_on_non_object() {
+        let code = r#"
+private num = 42
+print(num.field)
+"#;
+        let tokens = lexing::analyze_code(code);
+        let program = build_statements(&tokens).unwrap();
+
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.message.contains("Cannot access field") || err.message.contains("non-object"));
+    }
+
+    #[test]
+    fn test_member_access_nonexistent_field() {
+        std::fs::create_dir_all("test_no_field").ok();
+        std::fs::write("test_no_field/config.cenv", "KEY = \"value\"\n").unwrap();
+
+        let code = r#"
+private config = import("test_no_field/config.cenv")
+print(config.NONEXISTENT)
+"#;
+        let tokens = lexing::analyze_code(code);
+        let program = build_statements(&tokens).unwrap();
+
+        let mut evaluator = Evaluator::with_module(None);
+        let result = evaluator.eval_program(&program);
+
+        std::fs::remove_dir_all("test_no_field").ok();
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.message.contains("no field"));
     }
 }

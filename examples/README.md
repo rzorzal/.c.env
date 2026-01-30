@@ -5,12 +5,21 @@ This directory contains working examples demonstrating various features of the C
 ## 🎯 Running Examples
 
 ```bash
-# From the project root
-cargo run examples/<filename>
+# From the project root - Default mode (creates .env file)
+cargo run --quiet -- examples/<filename>
+cargo run --quiet -- <filename> --module=<value>
 
-# With module argument
-cargo run <filename> --module=<value>
+# Dry run mode (output to stdout, no file created)
+cargo run --quiet -- examples/<filename> --dry
+cargo run --quiet -- <filename> --module=<value> --dry
+
+# Or using the binary directly
+./target/release/cenv examples/<filename>
+./target/release/cenv <filename> --module=<value>
+./target/release/cenv <filename> --dry
 ```
+
+**Note:** By default, cenv generates a `.env` file (or `.env.<module>` if `--module` is used). Use `--dry` flag to output to stdout instead.
 
 ## 📁 Examples
 
@@ -19,7 +28,9 @@ cargo run <filename> --module=<value>
 Demonstrates private variables and string template interpolation.
 
 ```bash
-cargo run examples/.c.env.hello
+cargo run --quiet -- examples/.c.env.hello
+# or
+./target/release/cenv examples/.c.env.hello
 ```
 
 **Features:**
@@ -47,46 +58,53 @@ my string is: bar
 
 ### 2. `.c.env.functions` - Built-in Functions and Imports
 
-Demonstrates built-in functions, imports, and AWS Secrets integration.
+Demonstrates built-in functions, object-based imports, and AWS Secrets integration.
 
 ```bash
-cargo run examples/.c.env.functions
+cargo run --quiet -- examples/.c.env.functions
+# or
+./target/release/cenv examples/.c.env.functions
 ```
 
 **Features:**
 
-- File imports with `import(path)`
+- **NEW**: Import functions return objects with public variables
+- Member access using dot notation (`obj.field`)
 - AWS Secrets Manager integration with `import_aws_secret(path)`
-- Built-in functions: `type()`, `str()`, `num()`
+- Built-in functions: `type()`, `str()`, `num()`, `len()`
 - Arithmetic operations
 
 **Source:**
 
 ```javascript
-// Import another .cenv file
-import("examples/.c.env.hello")
+// Import returns an object with all public variables
+private config = import("examples/.c.env.hello")
 
-// Import AWS secret
-import_aws_secret("/secret/path")
+// Access variables using dot notation
+print("App Name:", config.APP_NAME)
+print("Version:", config.VERSION)
+print("Type of config:", type(config))
+
+// AWS secret import also returns an object
+private secrets = import_aws_secret("/secret/path")
 
 // Built-in functions
-private port = 8080
-print("Type of port:", type(port))
-print("Port as string:", str(port))
-
-// Calculations
-private maxUsers = 100
-private bufferSize = maxUsers * 1024
-print("Buffer size:", bufferSize)
+private text = "Hello World"
+print("String length:", len(text))
 ```
 
 **Output:**
 
 ```
-my string is: bar
-Type of port: number
-Port as string: 8080
-Buffer size: 102400
+hello world
+App Name: MyApp
+Version: 1.0.0
+Type of config: object
+Note: import_aws_secret('/secret/path') would fetch from AWS Secrets Manager
+String length: 11
+Type: string
+Converted number: 42
+Boolean: true
 ```
 
 ---
@@ -96,7 +114,9 @@ Buffer size: 102400
 Demonstrates the difference between public and private variables, and how they affect .env output.
 
 ```bash
-cargo run examples/test_public_vars.cenv
+cargo run --quiet -- examples/test_public_vars.cenv
+# or
+./target/release/cenv examples/test_public_vars.cenv
 ```
 
 **Features:**
@@ -155,14 +175,19 @@ This example demonstrates the most powerful feature: module-based .env compilati
 #### Running:
 
 ```bash
-# Compile for production
-cargo run examples/config.cenv --module=production
+# Compile for production (creates .env.production file)
+cargo run --quiet -- examples/config.cenv --module=production
+# or
+./target/release/cenv examples/config.cenv --module=production
 
-# Compile for staging
-cargo run examples/config.cenv --module=staging
+# Compile for staging (creates .env.staging file)
+cargo run --quiet -- examples/config.cenv --module=staging
+# or
+./target/release/cenv examples/config.cenv --module=staging
 
-# Generate .env file (production)
-cargo run examples/config.cenv --module=production 2>/dev/null | tail -n +4 > .env.production
+# Dry run - output to stdout without creating file
+cargo run --quiet -- examples/config.cenv --module=production --dry
+./target/release/cenv examples/config.cenv --module=staging --dry
 ```
 
 #### `config.cenv`:
@@ -220,8 +245,9 @@ private internal_cache_ttl = 60
 #### Production Output:
 
 ```bash
-$ cargo run examples/config.cenv --module=production
+$ cenv examples/config.cenv --module=production
 
+✓ Generated .env.production
 Compiling .env for environment: production
 API URL: https://prod.api.example.com
 Debug mode: false
@@ -240,8 +266,9 @@ PORT=3000
 #### Staging Output:
 
 ```bash
-$ cargo run examples/config.cenv --module=staging
+$ cenv examples/config.cenv --module=staging
 
+✓ Generated .env.staging
 Compiling .env for environment: staging
 API URL: https://staging.api.example.com
 Debug mode: true
@@ -273,10 +300,10 @@ PORT=3000
 The special `module` variable is set via the `--module=<value>` command-line argument:
 
 ```bash
-cargo run examples/config.cenv --module=production
+cargo run --quiet -- examples/config.cenv --module=production
 # Sets: module = "production"
 
-cargo run examples/config.cenv --module=staging
+cargo run --quiet -- examples/config.cenv --module=staging
 # Sets: module = "staging"
 ```
 
@@ -290,12 +317,28 @@ import("./.cenv." + module);
 
 ### .env Output
 
-The compiler outputs two sections:
+**Default mode** - Creates .env file:
 
-1. **Print statements** - Debug output during compilation
-2. **.env format** - Variables in `KEY=value` format
+```bash
+cenv examples/config.cenv --module=production
+# Creates: .env.production file
+# Stdout: Print statements only
+```
 
-To extract only the .env content:
+**Dry run mode** (`--dry` flag) - Output to stdout:
+
+```bash
+cenv examples/config.cenv --module=production --dry
+# Creates: Nothing (no file)
+# Stdout: Print statements + .env variables
+```
+
+The compiler generates:
+
+1. **Print statements** - Debug output during compilation (always to stdout)
+2. **.env variables** - Public variables in `KEY=value` format
+   - Default mode: Written to `.env` or `.env.<module>` file
+   - Dry run mode: Written to stdout
 
 ```bash
 cargo run config.cenv --module=production 2>/dev/null | tail -n +4 > .env

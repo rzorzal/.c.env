@@ -1,0 +1,13 @@
+// Test new import system where imports return objects
+
+// Import database configuration - returns object with public variables
+private db_envs = import("examples/imports/db_config.cenv")
+
+// Access individual fields using dot notation
+DATABASE_URL = db_envs.DATABASE_URL
+DATABASE_NAME = db_envs.DATABASE_NAME
+
+// Can also use them in expressions
+print("DB URL:", db_envs.DATABASE_URL)
+print("DB Name:", db_envs.DATABASE_NAME)
+print("Type of db_envs:", type(db_envs))

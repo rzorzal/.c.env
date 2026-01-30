@@ -11,5 +11,5 @@ name = "c_env_lang"
 path = "src/lib.rs"
 
 [[bin]]
-name = "c_env_lang"
+name = "cenv"
 path = "src/main.rs"

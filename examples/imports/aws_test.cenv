@@ -1,4 +1,10 @@
-// Test AWS secret import placeholder
-import_aws_secret("my-app/database-credentials")
+// Test AWS secret import with new object-based syntax
+private myAWSVar = import_aws_secret("my-app/database-credentials")
+
+// In production, this would fetch secrets from AWS and make them available as:
+// myAWSVar.SECRET_KEY
+// myAWSVar.API_TOKEN
+// etc.
 
 print("AWS secret import requested")
+print("Type:", type(myAWSVar))

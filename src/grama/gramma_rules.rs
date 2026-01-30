@@ -25,6 +25,7 @@ pub enum Expr {
     // Pós-fixos
     Call { callee: Box<Expr>, args: Vec<Expr> },
     Index { target: Box<Expr>, index: Box<Expr> },
+    Member { object: Box<Expr>, field: Ident },
 
     // Unários e binários
     Unary { op: UnaryOp, rhs: Box<Expr> },

@@ -81,14 +81,13 @@ pub(super) fn parse_primary_expression_with_count(tokens: &[lexing::Token]) -> P
         return Ok((expr, 1));
       }
 
-      // Check if this is a property access
+      // Check if this is a property access using dot notation
       if tokens.len() > 2 && matches!(&tokens[1].token_type, lexing::TokenType::Dot(_)) {
         if let lexing::TokenType::Identifier(prop_name) = &tokens[2].token_type {
-          let target = Expr::Ident(value.clone());
-          let index = Expr::StringLiteral(prop_name.clone());
-          return Ok((Expr::Index {
-            target: Box::new(target),
-            index: Box::new(index),
+          let object = Expr::Ident(value.clone());
+          return Ok((Expr::Member {
+            object: Box::new(object),
+            field: prop_name.clone(),
           }, 3)); // Consumed: identifier, dot, property
         }
       }

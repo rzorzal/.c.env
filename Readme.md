@@ -12,11 +12,26 @@ C.env compiles `.cenv` source files into `.env` files for different environments
 # Build the project
 cargo build --release
 
-# Compile a .cenv file for production environment
-./target/release/c_env_lang examples/config.cenv --module=production
+# Compile and generate .env file (with production module variable)
+./target/release/cenv examples/config.cenv --module=production
 
-# Compile for staging environment
-./target/release/c_env_lang examples/config.cenv --module=staging
+# Compile and generate .env file (with staging module variable)
+./target/release/cenv examples/config.cenv --module=staging
+
+# Custom output filename
+./target/release/cenv examples/config.cenv --module=production --output=.env.production
+
+# Dry run - output to stdout without creating file
+./target/release/cenv examples/config.cenv --module=production --dry
+
+# Or using cargo run
+cargo run --quiet -- examples/config.cenv --module=production
+
+# Get help
+cenv --help
+
+# Check version
+cenv --version
 ```
 
 ## 📚 Documentation
@@ -55,6 +70,70 @@ PORT = 8080                          // ✅ Exported to .env
 private max_pool = 20      // ❌ Not exported to .env
 private min_pool = 5       // ❌ Not exported to .env
 POOL_SIZE = max_pool       // ✅ Exported to .env (value: 20)
+```
+
+### Import System
+
+Import functions return **objects** containing all **public variables** from the imported file:
+
+```cenv
+// database.cenv
+DATABASE_URL = "postgresql://localhost/db"
+DATABASE_PORT = 5432
+private connection_timeout = 30  // Not included in import object
+```
+
+**Using imports**:
+
+```cenv
+// Import returns an object with public variables
+private db_config = import("database.cenv")
+
+// Access variables using dot notation
+DATABASE_URL = db_config.DATABASE_URL
+DATABASE_PORT = db_config.DATABASE_PORT
+
+// Can use in expressions
+print("Connecting to:", db_config.DATABASE_URL)
+```
+
+**AWS Secrets Manager** (placeholder - returns empty object currently):
+
+```cenv
+private secrets = import_aws_secret("my-app/credentials")
+// In production: secrets.API_KEY, secrets.SECRET_TOKEN, etc.
+```
+
+**Key points**:
+
+- ✅ `import()` and `import_aws_secret()` return objects
+- ✅ Only **public variables** are included in the object
+- ✅ Access fields using dot notation: `obj.field`
+- ✅ Backward compatible: standalone `import("file")` still merges variables
+
+### Output Modes
+
+**File output (default)**:
+
+- Creates `.env` file by default
+- Use `--module=<name>` → creates `.env.<name>`
+- Use `--output=<filename>` → creates custom filename
+- **Priority**: `--output` > `--module` > `.env`
+
+**Dry run** (`--dry` flag):
+
+- No file created - all output to stdout
+- Shows both print statements and .env variables
+- Useful for testing and debugging
+
+**Examples**:
+
+```bash
+cenv config.cenv                           # → .env
+cenv config.cenv --module=production       # → .env.production
+cenv config.cenv --output=.env.custom      # → .env.custom
+cenv config.cenv --module=prod --output=.env.p  # → .env.p (output wins)
+cenv config.cenv --dry                     # → stdout only
 ```
 
 - ✅ **Built-in Functions** - print(), type(), len(), num(), str(), bool()
@@ -117,14 +196,15 @@ private internal_cache_ttl = 60
 #### Compilation
 
 ```bash
-# Compile for production
-./target/release/c_env_lang examples/config.cenv --module=production
+# Compile for production (creates .env.production)
+./target/release/cenv examples/config.cenv --module=production
 
-# Output (print statements):
+# Output:
+# ✓ Generated .env.production
 # Compiling .env for environment: production
 # API URL: https://prod.api.example.com
 
-# Output (.env format):
+# Output (.env.production file content):
 # API_URL=https://prod.api.example.com
 # APP_NAME=MyApplication
 # APP_VERSION=1.0.0
@@ -135,8 +215,8 @@ private internal_cache_ttl = 60
 # LOG_LEVEL=error
 # PORT=3000
 
-# Generate .env file (skip warnings and print statements)
-cargo run examples/config.cenv --module=production 2>/dev/null | tail -n +4 > .env
+# Dry run mode - output to stdout without creating file
+cargo run --quiet -- examples/config.cenv --module=production --dry
 ```
 
 // Built-in functions

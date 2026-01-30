@@ -1,0 +1,7 @@
+// Database configuration file
+DATABASE_URL = "postgresql://localhost:5432/mydb"
+DATABASE_NAME = "mydb"
+DATABASE_USER = "admin"
+
+private db_timeout = 30
+private db_pool_size = 10

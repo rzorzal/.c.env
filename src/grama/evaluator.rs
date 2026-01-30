@@ -150,7 +150,7 @@ impl Evaluator {
             Value::String(s) => {
                 // Quote strings that contain spaces or special characters
                 if s.contains(' ') || s.contains('=') || s.contains('"') {
-                    format!("\"{}\""  , s.replace('"', "\\\""))
+                    format!("\"{}\"", s.replace('"', "\\\""))
                 } else {
                     s.clone()
                 }
@@ -159,6 +159,7 @@ impl Evaluator {
             Value::Bool(b) => b.to_string(),
             Value::Null => String::new(),
             Value::Array(_) => "[]".to_string(), // Basic array representation
+            Value::Object(_) => "{}".to_string(), // Basic object representation
         }
     }
 
@@ -178,7 +179,8 @@ impl Evaluator {
                 self.env.assign(target, val)
             }
             Stmt::Import { path, is_aws_secret, .. } => {
-                // Evaluate the path expression to get the actual path string
+                // Import as a statement: execute import and merge variables into current environment
+                // This maintains backward compatibility with standalone import statements
                 let path_value = self.eval_expr(path)?;
                 let path_str = match path_value {
                     Value::String(s) => s,
@@ -186,7 +188,18 @@ impl Evaluator {
                         format!("Import path must be a string, got {}", path_value.type_name())
                     )),
                 };
-                self.eval_import(&path_str, *is_aws_secret)
+
+                // Get the imported object
+                let import_obj = self.eval_import(&path_str, *is_aws_secret)?;
+
+                // For standalone import statements, merge all variables into current environment
+                if let Value::Object(vars) = import_obj {
+                    for (name, value) in vars {
+                        self.env.define(name, value);
+                    }
+                }
+
+                Ok(())
             }
             Stmt::ExprStmt(expr) => {
                 self.eval_expr(expr)?;
@@ -226,6 +239,20 @@ impl Evaluator {
                 let target_val = self.eval_expr(target)?;
                 let index_val = self.eval_expr(index)?;
                 self.eval_index(target_val, index_val)
+            }
+
+            Expr::Member { object, field } => {
+                let obj_val = self.eval_expr(object)?;
+                match obj_val {
+                    Value::Object(map) => {
+                        map.get(field).cloned().ok_or_else(|| {
+                            RuntimeError::new(format!("Object has no field '{}'", field))
+                        })
+                    }
+                    _ => Err(RuntimeError::new(
+                        format!("Cannot access field '{}' on non-object type {}", field, obj_val.type_name())
+                    )),
+                }
             }
 
             Expr::Unary { op, rhs } => {
@@ -275,6 +302,8 @@ impl Evaluator {
             "str" => self.builtin_str(args),
             "num" => self.builtin_num(args),
             "bool" => self.builtin_bool(args),
+            "import" => self.builtin_import(args, false),
+            "import_aws_secret" => self.builtin_import(args, true),
             _ => Err(RuntimeError::unknown_function(name)),
         }
     }
@@ -306,8 +335,9 @@ impl Evaluator {
         match val {
             Value::String(s) => Ok(Value::Number(s.len() as f64)),
             Value::Array(a) => Ok(Value::Number(a.len() as f64)),
+            Value::Object(o) => Ok(Value::Number(o.len() as f64)),
             _ => Err(RuntimeError::type_error(
-                "string or array",
+                "string, array, or object",
                 val.type_name(),
                 "len()"
             )),
@@ -347,9 +377,9 @@ impl Evaluator {
             }
             Value::Bool(b) => Ok(Value::Number(if b { 1.0 } else { 0.0 })),
             Value::Null => Ok(Value::Number(0.0)),
-            Value::Array(_) => Err(RuntimeError::type_error(
+            Value::Array(_) | Value::Object(_) => Err(RuntimeError::type_error(
                 "number, string, or boolean",
-                "array",
+                val.type_name(),
                 "num()"
             )),
         }
@@ -362,6 +392,28 @@ impl Evaluator {
 
         let val = self.eval_expr(&args[0])?;
         Ok(Value::Bool(val.is_truthy()))
+    }
+
+    fn builtin_import(&mut self, args: &[Expr], is_aws_secret: bool) -> EvalResult<Value> {
+        if args.len() != 1 {
+            let fn_name = if is_aws_secret { "import_aws_secret" } else { "import" };
+            return Err(RuntimeError::wrong_arg_count(fn_name, 1, args.len()));
+        }
+
+        // Evaluate the path argument
+        let path_value = self.eval_expr(&args[0])?;
+        let path_str = match path_value {
+            Value::String(s) => s,
+            _ => {
+                let fn_name = if is_aws_secret { "import_aws_secret" } else { "import" };
+                return Err(RuntimeError::new(
+                    format!("{}() expects a string path, got {}", fn_name, path_value.type_name())
+                ));
+            }
+        };
+
+        // Call eval_import which now returns Value::Object
+        self.eval_import(&path_str, is_aws_secret)
     }
 
     fn eval_index(&self, target: Value, index: Value) -> EvalResult<Value> {
@@ -470,13 +522,13 @@ impl Evaluator {
         }
     }
 
-    fn eval_import(&mut self, path: &str, is_aws_secret: bool) -> EvalResult<()> {
+    fn eval_import(&mut self, path: &str, is_aws_secret: bool) -> EvalResult<Value> {
         // Check if this is an AWS secret import
         if is_aws_secret {
-            // For now, we'll just store a placeholder value
+            // For now, we'll just return an empty object with a note
             // In a real implementation, this would fetch from AWS Secrets Manager
             self.output.push(format!("Note: import_aws_secret('{}') would fetch from AWS Secrets Manager", path));
-            return Ok(());
+            return Ok(Value::Object(HashMap::new()));
         }
 
         // Resolve the file path relative to base_path
@@ -520,14 +572,27 @@ impl Evaluator {
             self.base_path = parent.to_path_buf();
         }
 
+        // Create a new evaluator for the imported file to isolate its execution
+        let mut import_evaluator = Evaluator {
+            env: Environment::new(),
+            output: Vec::new(),
+            public_vars: HashMap::new(),
+            base_path: self.base_path.clone(),
+            imported_files: self.imported_files.clone(),
+        };
+
         // Execute the imported program
         for stmt in &program.items {
-            self.eval_statement(stmt)?;
+            import_evaluator.eval_statement(stmt)?;
         }
+
+        // Merge output from imported file
+        self.output.extend(import_evaluator.output);
 
         // Restore original base path
         self.base_path = original_base;
 
-        Ok(())
+        // Return an object containing all public variables from the imported file
+        Ok(Value::Object(import_evaluator.public_vars))
     }
 }
