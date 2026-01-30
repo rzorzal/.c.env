@@ -11,17 +11,17 @@ C.env compiles `.cenv` source files into `.env` files for different environments
 ### Quick Install (Recommended)
 
 ```bash
-curl -sSf https://raw.githubusercontent.com/yourusername/c.env.lang/main/install.sh | bash
+curl -sSf https://raw.githubusercontent.com/rzorzal/.c.env/main/install.sh | bash
 ```
 
 ### Package Managers
 
 ```bash
 # Homebrew (macOS/Linux)
-brew install yourusername/cenv/cenv
+brew install rzorzal/cenv
 
 # From source with Cargo
-cargo install --git https://github.com/yourusername/c.env.lang
+cargo install --git https://github.com/rzorzal/.c.env
 ```
 
 **[Complete Installation Guide →](INSTALL.md)** - More installation options including APT, pre-built binaries, and building from source.

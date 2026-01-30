@@ -70,7 +70,7 @@ git push origin main
 git push origin v0.1.0
 ```
 
-### 3. GitHub Actions Handles the Rest!
+### 3. GitHub Actions Handles the Rest
 
 - Builds binaries for all platforms
 - Creates GitHub Release
@@ -82,7 +82,7 @@ git push origin v0.1.0
 ### 1. Quick Install Script (Easiest)
 
 ```bash
-curl -sSf https://raw.githubusercontent.com/yourusername/c.env.lang/main/install.sh | bash
+curl -sSf https://raw.githubusercontent.com/rzorzal/.c.env/main/install.sh | bash
 ```
 
 ### 2. Homebrew
@@ -90,14 +90,14 @@ curl -sSf https://raw.githubusercontent.com/yourusername/c.env.lang/main/install
 First, create a tap repository on GitHub named `homebrew-cenv`:
 
 ```bash
-brew tap yourusername/cenv
+brew tap rzorzal/cenv
 brew install cenv
 ```
 
 ### 3. APT (Debian/Ubuntu)
 
 ```bash
-wget https://github.com/yourusername/c.env.lang/releases/download/v0.1.0/cenv_0.1.0_amd64.deb
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.0/cenv_0.1.0_amd64.deb
 sudo dpkg -i cenv_0.1.0_amd64.deb
 ```
 
@@ -113,7 +113,7 @@ Download from GitHub Releases:
 ### 5. Build from Source
 
 ```bash
-git clone https://github.com/yourusername/c.env.lang.git
+git clone https://github.com/rzorzal/.c.env.git
 cd c.env.lang
 ./install.sh
 ```
@@ -170,20 +170,20 @@ Before your first release, update these files with your information:
 
 ## 🏗️ Next Steps for Full Package Support
 
-### For Homebrew Core (after project matures):
+### For Homebrew Core (after project matures)
 
 1. Build user base
 2. Submit PR to `Homebrew/homebrew-core`
 3. Maintain formula
 
-### For APT Repository (advanced):
+### For APT Repository (advanced)
 
 1. Set up server for hosting packages
 2. Create repository structure
 3. Sign packages with GPG
 4. Document repository setup for users
 
-### Other Package Managers to Consider:
+### Other Package Managers to Consider
 
 - **Snap**: Cross-distro Linux package
 - **Flatpak**: Another cross-distro option

@@ -42,7 +42,7 @@ fn print_help() {
     println!("    Use --output to specify a custom filename");
     println!("    Use --dry to output to stdout instead");
     println!();
-    println!("For more information, visit: https://github.com/yourusername/c.env.lang");
+    println!("For more information, visit: https://github.com/rzorzal/.c.env");
 }
 
 fn main() {

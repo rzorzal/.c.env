@@ -69,7 +69,7 @@ After the release is published, the package workflow will create `.deb` files fo
 1. Create a new repository named `homebrew-cenv`:
 
    ```bash
-   # On GitHub, create: yourusername/homebrew-cenv
+   # On GitHub, create: rzorzal/homebrew-cenv
    ```
 
 2. Copy `homebrew/cenv.rb` to the tap repository as `Formula/cenv.rb`
@@ -80,8 +80,9 @@ After the release is published, the package workflow will create `.deb` files fo
    - Update URLs to point to your release
 
 4. Users install with:
+
    ```bash
-   brew tap yourusername/cenv
+   brew tap rzorzal/cenv
    brew install cenv
    ```
 
@@ -96,14 +97,14 @@ Once your tool gains traction, you can submit to [Homebrew/homebrew-core](https:
 Users download `.deb` from releases:
 
 ```bash
-wget https://github.com/yourusername/c.env.lang/releases/download/v0.1.0/cenv_0.1.0_amd64.deb
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.0/cenv_0.1.0_amd64.deb
 sudo dpkg -i cenv_0.1.0_amd64.deb
 ```
 
 #### Option 2: PPA (Personal Package Archive) - Ubuntu Only
 
 1. Create a Launchpad account
-2. Create a PPA: https://launchpad.net/~yourusername/+activate-ppa
+2. Create a PPA: <https://launchpad.net/~rzorzal/+activate-ppa>
 3. Upload packages using `dput`
 
 #### Option 3: Self-Hosted APT Repository (Advanced)
@@ -111,6 +112,7 @@ sudo dpkg -i cenv_0.1.0_amd64.deb
 1. Set up a server with apt repository structure
 2. Host `.deb` files
 3. Users add your repository:
+
    ```bash
    echo "deb https://apt.yourdomain.com stable main" | sudo tee /etc/apt/sources.list.d/cenv.list
    curl -fsSL https://apt.yourdomain.com/key.gpg | sudo apt-key add -
@@ -120,7 +122,7 @@ sudo dpkg -i cenv_0.1.0_amd64.deb
 
 ## 🔧 Configuration Required
 
-### Before Your First Release:
+### Before Your First Release
 
 1. **Update repository URLs** in all files:
    - Replace `yourusername` with your GitHub username

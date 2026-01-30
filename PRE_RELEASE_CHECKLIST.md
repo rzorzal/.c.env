@@ -105,7 +105,7 @@ sha256sum cenv-Darwin-aarch64.tar.gz
 ### 8. Test Installation Methods
 
 - [ ] Install via script: `curl -sSf <url>/install.sh | bash`
-- [ ] Install via Homebrew (if set up): `brew install yourusername/cenv/cenv`
+- [ ] Install via Homebrew (if set up): `brew install rzorzal/cenv`
 - [ ] Install via .deb: `sudo dpkg -i cenv_*.deb`
 - [ ] Install from source: `./install.sh`
 
@@ -191,5 +191,5 @@ sha256sum <file>.tar.gz
 rm ~/.local/bin/cenv && ./install.sh
 
 # Check GitHub Actions status
-# Visit: https://github.com/yourusername/c.env.lang/actions
+# Visit: https://github.com/rzorzal/.c.env/actions
 ```

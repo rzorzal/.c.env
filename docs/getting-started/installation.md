@@ -20,7 +20,7 @@
 2. **Clone the repository**:
 
    ```bash
-   git clone https://github.com/yourusername/c.env.lang.git
+   git clone https://github.com/rzorzal/.c.env.git
    cd c.env.lang
    ```
 
@@ -43,6 +43,7 @@
    ```
 
 5. **Verify installation**:
+
    ```bash
    c_env_lang --version
    ```

@@ -38,7 +38,7 @@ Maintainer: Your Name <your.email@example.com>
 Description: C.env - A simple configuration language and interpreter
  C.env is a lightweight configuration language designed for environment
  configuration with support for imports, type conversion, and more.
-Homepage: https://github.com/yourusername/c.env.lang
+Homepage: https://github.com/rzorzal/.c.env
 EOF
 
 # Copy documentation
