@@ -49,7 +49,7 @@ mod import_statement_tests {
 
     #[test]
     fn test_import_non_string_argument() {
-        let code = r#"import(123)"#;
+        let code = r#"private x = import(123)"#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens);
 
@@ -66,7 +66,7 @@ mod import_statement_tests {
 
     #[test]
     fn test_import_multiple_arguments() {
-        let code = r#"import("file1.cenv", "file2.cenv")"#;
+        let code = r#"private x = import("file1.cenv", "file2.cenv")"#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens);
 
@@ -88,7 +88,7 @@ mod import_execution_tests {
 
     #[test]
     fn test_import_file_not_found() {
-        let code = r#"import("nonexistent.cenv")"#;
+        let code = r#"private x = import("nonexistent.cenv")"#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
@@ -103,7 +103,7 @@ mod import_execution_tests {
 
     #[test]
     fn test_import_aws_secret_placeholder() {
-        let code = r#"import_aws_secret("my-secret")"#;
+        let code = r#"private secrets = import_aws_secret("my-secret")"#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
@@ -111,9 +111,6 @@ mod import_execution_tests {
         let result = evaluator.eval_program(&program);
 
         assert!(result.is_ok(), "AWS secret import should succeed with placeholder");
-        let output = result.unwrap();
-        assert_eq!(output.len(), 1);
-        assert!(output[0].contains("import_aws_secret"), "Output should mention AWS secret");
     }
 
     #[test]
@@ -123,8 +120,8 @@ mod import_execution_tests {
         std::fs::write("test_imports_vars/temp_config.cenv", "X_VALUE = 42\n").unwrap();
 
         let code = r#"
-import("test_imports_vars/temp_config.cenv")
-print(X_VALUE)
+private config = import("test_imports_vars/temp_config.cenv")
+print(config.X_VALUE)
 "#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
@@ -142,35 +139,28 @@ print(X_VALUE)
     }
 
     #[test]
-    fn test_import_executes_code() {
-        // Create a temporary file that prints something
-        std::fs::create_dir_all("test_imports_exec").ok();
-        std::fs::write("test_imports_exec/temp_print.cenv", "print(\"Hello from import\")\n").unwrap();
-
-        let code = r#"import("test_imports_exec/temp_print.cenv")"#;
+    fn test_standalone_import_throws_error() {
+        // Standalone import should now throw an error
+        let code = r#"import("some_file.cenv")"#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
-        let mut evaluator = Evaluator::new();
+        let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program);
 
-        // Clean up
-        std::fs::remove_dir_all("test_imports_exec").ok();
-
-        assert!(result.is_ok(), "Import should execute imported file's code");
-        let output = result.unwrap();
-        assert_eq!(output.len(), 1);
-        assert_eq!(output[0], "Hello from import");
+        assert!(result.is_err(), "Standalone import should fail");
+        let err = result.unwrap_err();
+        assert!(err.message.contains("must be assigned to a variable"));
     }
 
     #[test]
     fn test_circular_import_detection() {
         // Create two files that import each other
         std::fs::create_dir_all("test_imports_circular").ok();
-        std::fs::write("test_imports_circular/file_a.cenv", "import(\"file_b.cenv\")\n").unwrap();
-        std::fs::write("test_imports_circular/file_b.cenv", "import(\"file_a.cenv\")\n").unwrap();
+        std::fs::write("test_imports_circular/file_a.cenv", "private b = import(\"file_b.cenv\")\n").unwrap();
+        std::fs::write("test_imports_circular/file_b.cenv", "private a = import(\"file_a.cenv\")\n").unwrap();
 
-        let code = r#"import("test_imports_circular/file_a.cenv")"#;
+        let code = r#"private a = import("test_imports_circular/file_a.cenv")"#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
 
@@ -200,9 +190,9 @@ print(X_VALUE)
         std::fs::write("test_imports_multi/file2.cenv", "B_VALUE = 20\n").unwrap();
 
         let code = r#"
-import("test_imports_multi/file1.cenv")
-import("test_imports_multi/file2.cenv")
-private c = A_VALUE + B_VALUE
+private file1 = import("test_imports_multi/file1.cenv")
+private file2 = import("test_imports_multi/file2.cenv")
+private c = file1.A_VALUE + file2.B_VALUE
 print(c)
 "#;
         let tokens = lexing::analyze_code(code);
@@ -238,9 +228,9 @@ mod import_integration_tests {
         std::fs::write("test_imports_expr/math.cenv", "PI = 3.14\nE = 2.71\n").unwrap();
 
         let code = r#"
-import("test_imports_expr/math.cenv")
-private circle_area = PI * 5 * 5
-print(type(PI))
+private math = import("test_imports_expr/math.cenv")
+private circle_area = math.PI * 5 * 5
+print(type(math.PI))
 print(circle_area > 70)
 "#;
         let tokens = lexing::analyze_code(code);
@@ -259,15 +249,15 @@ print(circle_area > 70)
     }
 
     #[test]
-    fn test_import_shadowing() {
-        std::fs::create_dir_all("test_imports_shadow").ok();
-        std::fs::write("test_imports_shadow/shadowing.cenv", "X_VAR = 100\n").unwrap();
+    fn test_import_with_local_vars() {
+        std::fs::create_dir_all("test_imports_local").ok();
+        std::fs::write("test_imports_local/config.cenv", "X_VAR = 100\n").unwrap();
 
         let code = r#"
 private x = 1
-print("Before import:", x)
-import("test_imports_shadow/shadowing.cenv")
-print("After import:", X_VAR)
+print("Local x:", x)
+private config = import("test_imports_local/config.cenv")
+print("Imported X_VAR:", config.X_VAR)
 "#;
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens).unwrap();
@@ -275,13 +265,13 @@ print("After import:", X_VAR)
         let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program);
 
-        std::fs::remove_dir_all("test_imports_shadow").ok();
+        std::fs::remove_dir_all("test_imports_local").ok();
 
         assert!(result.is_ok());
         let output = result.unwrap();
         assert_eq!(output.len(), 2);
-        assert_eq!(output[0], "Before import: 1");
-        assert_eq!(output[1], "After import: 100");
+        assert_eq!(output[0], "Local x: 1");
+        assert_eq!(output[1], "Imported X_VAR: 100");
     }
 }
 

@@ -1,0 +1,49 @@
+warning: function `parse_assignment` is never used
+  --> src/grama/parser/statement_parser.rs:98:4
+   |
+98 | fn parse_assignment(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
+   |    ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `c_env_lang` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+     Running unittests src/lib.rs (target/debug/deps/c_env_lang-bb6fe14e67f5f9c8)
+
+running 20 tests
+test grama::tests::imports::import_execution_tests::test_circular_import_detection ... ok
+test grama::tests::imports::import_execution_tests::test_import_aws_secret_placeholder ... ok
+test grama::tests::imports::import_execution_tests::test_import_file_not_found ... FAILED
+test grama::tests::imports::import_execution_tests::test_import_variables_accessible ... ok
+test grama::tests::imports::import_execution_tests::test_multiple_imports ... ok
+test grama::tests::imports::import_execution_tests::test_standalone_import_throws_error ... ok
+test grama::tests::imports::import_integration_tests::test_import_with_expressions ... ok
+test grama::tests::imports::import_integration_tests::test_import_with_local_vars ... ok
+test grama::tests::imports::import_object_tests::test_aws_secret_returns_object ... ok
+test grama::tests::imports::import_object_tests::test_import_only_public_vars ... ok
+test grama::tests::imports::import_object_tests::test_import_returns_object ... ok
+test grama::tests::imports::import_object_tests::test_member_access_error_on_non_object ... ok
+test grama::tests::imports::import_object_tests::test_member_access_nonexistent_field ... ok
+test grama::tests::imports::import_object_tests::test_member_access_on_import ... ok
+test grama::tests::imports::import_statement_tests::test_import_aws_secret_parsing ... ok
+test grama::tests::imports::import_statement_tests::test_import_missing_argument ... ok
+test grama::tests::imports::import_statement_tests::test_import_missing_parentheses ... ok
+test grama::tests::imports::import_statement_tests::test_import_multiple_arguments ... ok
+test grama::tests::imports::import_statement_tests::test_import_non_string_argument ... ok
+test grama::tests::imports::import_statement_tests::test_import_statement_parsing ... ok
+
+failures:
+
+---- grama::tests::imports::import_execution_tests::test_import_file_not_found stdout ----
+
+thread 'grama::tests::imports::import_execution_tests::test_import_file_not_found' panicked at src/grama/tests/imports.rs:100:9:
+Error should mention file failure, got: import() must be assigned to a variable. Use: private var = import("path")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    grama::tests::imports::import_execution_tests::test_import_file_not_found
+
+test result: FAILED. 19 passed; 1 failed; 0 ignored; 0 measured; 68 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

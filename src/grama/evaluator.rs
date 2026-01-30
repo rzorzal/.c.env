@@ -178,28 +178,12 @@ impl Evaluator {
                 let val = self.eval_expr(value)?;
                 self.env.assign(target, val)
             }
-            Stmt::Import { path, is_aws_secret, .. } => {
-                // Import as a statement: execute import and merge variables into current environment
-                // This maintains backward compatibility with standalone import statements
-                let path_value = self.eval_expr(path)?;
-                let path_str = match path_value {
-                    Value::String(s) => s,
-                    _ => return Err(RuntimeError::new(
-                        format!("Import path must be a string, got {}", path_value.type_name())
-                    )),
-                };
-
-                // Get the imported object
-                let import_obj = self.eval_import(&path_str, *is_aws_secret)?;
-
-                // For standalone import statements, merge all variables into current environment
-                if let Value::Object(vars) = import_obj {
-                    for (name, value) in vars {
-                        self.env.define(name, value);
-                    }
-                }
-
-                Ok(())
+            Stmt::Import { is_aws_secret, .. } => {
+                // Import must be assigned to a variable
+                let fn_name = if *is_aws_secret { "import_aws_secret" } else { "import" };
+                Err(RuntimeError::new(
+                    format!("{}() must be assigned to a variable. Use: private var = {}(\"path\")", fn_name, fn_name)
+                ))
             }
             Stmt::ExprStmt(expr) => {
                 self.eval_expr(expr)?;
