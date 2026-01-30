@@ -24,7 +24,7 @@ mkdir -p "${PKG_DIR}/usr/share/doc/cenv"
 mkdir -p "${PKG_DIR}/usr/share/man/man1"
 
 # Copy binary
-cp target/release/c_env_lang "${PKG_DIR}/usr/local/bin/cenv"
+cp target/release/cenv "${PKG_DIR}/usr/local/bin/cenv"
 chmod 755 "${PKG_DIR}/usr/local/bin/cenv"
 
 # Create control file

@@ -27,7 +27,7 @@ Replace email and name in:
 cargo build --release
 
 # Test binary works
-./target/release/c_env_lang --help
+./target/release/cenv --help
 
 # Test installation script
 ./install.sh

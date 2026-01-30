@@ -100,9 +100,9 @@ cd c.env.lang
 # Build
 cargo build --release
 
-# The binary will be at target/release/c_env_lang
+# The binary will be at target/release/cenv
 # Copy it to your PATH as 'cenv'
-sudo cp target/release/c_env_lang /usr/local/bin/cenv
+sudo cp target/release/cenv /usr/local/bin/cenv
 ```
 
 ## Verify Installation

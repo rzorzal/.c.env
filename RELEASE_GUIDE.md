@@ -167,7 +167,7 @@ sudo dpkg -i cenv_0.1.0_amd64.deb
 ```bash
 # Build and test locally
 cargo build --release
-./target/release/c_env_lang examples/hello.cenv
+./target/release/cenv examples/hello.cenv
 
 # Test the installer
 ./install.sh

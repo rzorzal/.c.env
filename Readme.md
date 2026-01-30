@@ -270,7 +270,7 @@ private max_retries = 3
 
 ```bash
 # Compile with module
-./target/release/c_env_lang config.cenv --module=production
+./target/release/cenv config.cenv --module=production
 # Output: Loaded config for: production
 ```
 
@@ -295,13 +295,13 @@ See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the full roadmap.
 Execute a C.env program:
 
 ```bash
-./target/release/c_env_lang program.cenv
+./target/release/cenv program.cenv
 ```
 
 Example output:
 
 ```bash
-$ ./target/release/c_env_lang examples/phase2_2_demo.cenv
+$ ./target/release/cenv examples/phase2_2_demo.cenv
 Hello, World!
 42
 true
@@ -313,7 +313,7 @@ Total: 30
 Debug mode (shows parsing and AST):
 
 ```bash
-./target/release/c_env_lang program.cenv --debug
+./target/release/cenv program.cenv --debug
 ```
 
 ## 🧪 Running Tests

@@ -39,7 +39,7 @@
    Or copy the binary to your PATH:
 
    ```bash
-   cp target/release/c_env_lang /usr/local/bin/
+   cp target/release/cenv /usr/local/bin/
    ```
 
 5. **Verify installation**:
@@ -96,7 +96,7 @@ rustup update
 On Unix systems, you may need to make the binary executable:
 
 ```bash
-chmod +x target/release/c_env_lang
+chmod +x target/release/cenv
 ```
 
 ## Next Steps

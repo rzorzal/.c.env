@@ -66,4 +66,4 @@ jobs:
         with:
           name: cenv-${{ matrix.os }}
           path: |
-            target/release/c_env_lang${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+            target/release/cenv${{ matrix.os == 'windows-latest' && '.exe' || '' }}

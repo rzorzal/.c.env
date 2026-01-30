@@ -117,7 +117,7 @@ test result: ok. 68 passed; 0 failed; 0 ignored; 0 measured
 ### Binary Works Correctly
 
 ```bash
-$ ./target/release/c_env_lang examples/phase2_2_demo.cenv
+$ ./target/release/cenv examples/phase2_2_demo.cenv
 Hello, World!
 42
 true
