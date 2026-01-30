@@ -11,12 +11,12 @@
   - Usage: `./install.sh` or `curl -sSf https://your-repo/install.sh | bash`
 
 - **`scripts/create-deb.sh`** - Creates `.deb` packages for Debian/Ubuntu
-  - Usage: `./scripts/create-deb.sh 0.1.1 amd64`
+  - Usage: `./scripts/create-deb.sh 0.1.2 amd64`
 
 ### 2. GitHub Actions Workflows
 
 - **`.github/workflows/release.yml`** - Automated releases
-  - Triggers on version tags (e.g., `v0.1.1`)
+  - Triggers on version tags (e.g., `v0.1.2`)
   - Builds binaries for:
     - Linux (x86_64, aarch64)
     - macOS (Intel, Apple Silicon)
@@ -57,17 +57,17 @@
 
 ```bash
 # Update Cargo.toml
-sed -i 's/version = "0.1.1"/version = "0.1.1"/' Cargo.toml
+sed -i 's/version = "0.1.2"/version = "0.1.2"/' Cargo.toml
 ```
 
 ### 2. Commit and Tag
 
 ```bash
 git add .
-git commit -m "Release v0.1.1"
-git tag v0.1.1
+git commit -m "Release v0.1.2"
+git tag v0.1.2
 git push origin main
-git push origin v0.1.1
+git push origin v0.1.2
 ```
 
 ### 3. GitHub Actions Handles the Rest
@@ -97,8 +97,8 @@ brew install cenv
 ### 3. APT (Debian/Ubuntu)
 
 ```bash
-wget https://github.com/rzorzal/.c.env/releases/download/v0.1.1/cenv_0.1.1_amd64.deb
-sudo dpkg -i cenv_0.1.1_amd64.deb
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.2/cenv_0.1.2_amd64.deb
+sudo dpkg -i cenv_0.1.2_amd64.deb
 ```
 
 ### 4. Pre-built Binaries
@@ -260,10 +260,10 @@ Before your first release, update these files with your information:
 ./install.sh
 
 # Create release
-git tag v0.1.1 && git push origin v0.1.1
+git tag v0.1.2 && git push origin v0.1.2
 
 # Create .deb package
-./scripts/create-deb.sh 0.1.1 amd64
+./scripts/create-deb.sh 0.1.2 amd64
 
 # Test installed binary
 ~/.local/bin/cenv --version

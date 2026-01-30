@@ -36,10 +36,10 @@ Download the `.deb` package from the [releases page](https://github.com/rzorzal/
 
 ```bash
 # Download the latest .deb
-wget https://github.com/rzorzal/.c.env/releases/download/v0.1.1/cenv_0.1.1_amd64.deb
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.2/cenv_0.1.2_amd64.deb
 
 # Install
-sudo dpkg -i cenv_0.1.1_amd64.deb
+sudo dpkg -i cenv_0.1.2_amd64.deb
 
 # If dependencies are missing
 sudo apt-get install -f
@@ -58,7 +58,7 @@ Download pre-built binaries from the [releases page](https://github.com/rzorzal/
 ### Linux (x86_64)
 
 ```bash
-wget https://github.com/rzorzal/.c.env/releases/download/v0.1.1/cenv-Linux-x86_64.tar.gz
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.2/cenv-Linux-x86_64.tar.gz
 tar xzf cenv-Linux-x86_64.tar.gz
 sudo mv cenv /usr/local/bin/
 ```
@@ -66,7 +66,7 @@ sudo mv cenv /usr/local/bin/
 ### macOS (Apple Silicon)
 
 ```bash
-wget https://github.com/rzorzal/.c.env/releases/download/v0.1.1/cenv-Darwin-aarch64.tar.gz
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.2/cenv-Darwin-aarch64.tar.gz
 tar xzf cenv-Darwin-aarch64.tar.gz
 sudo mv cenv /usr/local/bin/
 ```
@@ -74,7 +74,7 @@ sudo mv cenv /usr/local/bin/
 ### macOS (Intel)
 
 ```bash
-wget https://github.com/rzorzal/.c.env/releases/download/v0.1.1/cenv-Darwin-x86_64.tar.gz
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.2/cenv-Darwin-x86_64.tar.gz
 tar xzf cenv-Darwin-x86_64.tar.gz
 sudo mv cenv /usr/local/bin/
 ```

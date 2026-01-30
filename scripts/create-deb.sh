@@ -2,7 +2,7 @@
 
 set -e
 
-VERSION="${1:-0.1.1}"
+VERSION="${1:-0.1.2}"
 ARCH="${2:-amd64}"  # amd64, arm64, armhf
 
 # Colors

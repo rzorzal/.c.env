@@ -33,17 +33,17 @@ This guide explains how to set up releases and distribution for the C.env langua
 ```toml
 [package]
 name = "c_env_lang"
-version = "0.1.1"  # Update this
+version = "0.1.2"  # Update this
 ```
 
 ### Step 2: Commit and Tag
 
 ```bash
 git add .
-git commit -m "Release v0.1.1"
-git tag v0.1.1
+git commit -m "Release v0.1.2"
+git tag v0.1.2
 git push origin main
-git push origin v0.1.1
+git push origin v0.1.2
 ```
 
 ### Step 3: GitHub Actions Takes Over
@@ -97,8 +97,8 @@ Once your tool gains traction, you can submit to [Homebrew/homebrew-core](https:
 Users download `.deb` from releases:
 
 ```bash
-wget https://github.com/rzorzal/.c.env/releases/download/v0.1.1/cenv_0.1.1_amd64.deb
-sudo dpkg -i cenv_0.1.1_amd64.deb
+wget https://github.com/rzorzal/.c.env/releases/download/v0.1.2/cenv_0.1.2_amd64.deb
+sudo dpkg -i cenv_0.1.2_amd64.deb
 ```
 
 #### Option 2: PPA (Personal Package Archive) - Ubuntu Only
@@ -189,7 +189,7 @@ When you want to release a new version:
 
 ```bash
 # 1. Update version
-sed -i 's/version = "0.1.1"/version = "0.2.0"/' Cargo.toml
+sed -i 's/version = "0.1.2"/version = "0.2.0"/' Cargo.toml
 
 # 2. Commit and tag
 git add Cargo.toml

@@ -7,7 +7,7 @@ class Cenv < Formula
   license "MIT"
 
   # These will be updated automatically by the release script
-  version "0.1.1"
+  version "0.1.2"
 
   on_macos do
     if Hardware::CPU.arm?
