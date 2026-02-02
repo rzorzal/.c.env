@@ -20,10 +20,7 @@ pub enum ParseErrorKind {
     /// Unexpected end of input
     UnexpectedEof,
     /// Expected a specific token but found another
-    UnexpectedToken {
-        expected: String,
-        found: String,
-    },
+    UnexpectedToken { expected: String, found: String },
     /// Invalid expression syntax
     InvalidExpression(String),
     /// Invalid statement syntax
@@ -95,7 +92,11 @@ impl ParseError {
     }
 
     /// Create an unmatched delimiter error
-    pub fn unmatched_delimiter(delimiter: char, position: usize, opening_pos: Option<usize>) -> Self {
+    pub fn unmatched_delimiter(
+        delimiter: char,
+        position: usize,
+        opening_pos: Option<usize>,
+    ) -> Self {
         ParseError::new(
             ParseErrorKind::UnmatchedDelimiter {
                 delimiter,
@@ -141,7 +142,10 @@ impl ParseError {
         let lines: Vec<&str> = source.lines().collect();
 
         let mut output = String::new();
-        output.push_str(&format!("Parse error at line {}, column {}: ", line, column));
+        output.push_str(&format!(
+            "Parse error at line {}, column {}: ",
+            line, column
+        ));
         output.push_str(&self.kind.to_string());
         output.push('\n');
 
@@ -179,7 +183,11 @@ impl ParseError {
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Parse error at position {}: {}", self.position, self.kind)
+        write!(
+            f,
+            "Parse error at position {}: {}",
+            self.position, self.kind
+        )
     }
 }
 
@@ -198,7 +206,10 @@ impl fmt::Display for ParseErrorKind {
             ParseErrorKind::InvalidStatement(msg) => {
                 write!(f, "Invalid statement: {}", msg)
             }
-            ParseErrorKind::UnmatchedDelimiter { delimiter, opening_pos } => {
+            ParseErrorKind::UnmatchedDelimiter {
+                delimiter,
+                opening_pos,
+            } => {
                 if let Some(pos) = opening_pos {
                     write!(f, "Unmatched '{}' (opened at position {})", delimiter, pos)
                 } else {

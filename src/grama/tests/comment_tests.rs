@@ -7,7 +7,9 @@ fn eval_code_env(code: &str) -> Vec<String> {
     let tokens = lexing::analyze_code(code);
     let program = build_statements(&tokens).expect("Failed to parse");
     let mut evaluator = Evaluator::with_module(None);
-    evaluator.eval_program(&program).expect("Failed to evaluate");
+    evaluator
+        .eval_program(&program)
+        .expect("Failed to evaluate");
     evaluator.get_env_output()
 }
 
@@ -31,7 +33,11 @@ DB_PASS = "secret"
     assert!(env_output.contains(&"# User password".to_string()));
 
     // Verify that // comments are NOT in the output
-    assert!(!env_output.iter().any(|line| line.contains("This line comment should NOT appear")));
+    assert!(
+        !env_output
+            .iter()
+            .any(|line| line.contains("This line comment should NOT appear"))
+    );
 
     // Verify variables are present
     assert!(env_output.iter().any(|line| line.starts_with("DB_HOST=")));
@@ -103,7 +109,11 @@ VAR = "value"
     let env_output = eval_code_env(source);
 
     // Multiline comments should NOT be in output
-    assert!(!env_output.iter().any(|line| line.contains("multiline comment")));
+    assert!(
+        !env_output
+            .iter()
+            .any(|line| line.contains("multiline comment"))
+    );
 
     // But # comment should be
     assert!(env_output.contains(&"# This should appear".to_string()));

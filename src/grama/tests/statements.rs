@@ -10,7 +10,12 @@ fn test_simple_var_declaration() {
     let program = parse_program(code).expect("Should parse");
     assert_eq!(program.items.len(), 1);
 
-    if let Stmt::VarDecl { private_, name, value } = &program.items[0] {
+    if let Stmt::VarDecl {
+        private_,
+        name,
+        value,
+    } = &program.items[0]
+    {
         assert_eq!(*private_, true);
         assert_eq!(name, "x");
         assert!(matches!(value, Expr::Number(42.0)));

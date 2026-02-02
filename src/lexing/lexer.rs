@@ -1,4 +1,3 @@
-
 mod token;
 
 pub use token::Token as TokenType;
@@ -12,9 +11,14 @@ pub struct Token {
     pub number_value: Option<i32>,
 }
 
-
 impl Token {
-    pub fn new(token_type: TokenType, start: usize, end: usize, value: Option<String>, number_value: Option<i32>) -> Self {
+    pub fn new(
+        token_type: TokenType,
+        start: usize,
+        end: usize,
+        value: Option<String>,
+        number_value: Option<i32>,
+    ) -> Self {
         Token {
             token_type,
             start,
@@ -55,7 +59,11 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
             }
             // Create a Comment token with the full comment text including #
             let comment_text: String = chars[comment_start..end].iter().collect();
-            tokens.push(Token::without_value(TokenType::Comment(comment_text), comment_start, end));
+            tokens.push(Token::without_value(
+                TokenType::Comment(comment_text),
+                comment_start,
+                end,
+            ));
             start = end;
             continue;
         }
@@ -88,7 +96,11 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
 
         if current_char.is_whitespace() {
             if current_char == '\n' {
-                tokens.push(Token::without_value(TokenType::Eol("\n".to_string()), start, start + 1));
+                tokens.push(Token::without_value(
+                    TokenType::Eol("\n".to_string()),
+                    start,
+                    start + 1,
+                ));
             }
             start += 1;
             continue;
@@ -117,7 +129,12 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
                 "false" => TokenType::FalseLiteral(identifier.to_string()),
                 _ => TokenType::Identifier(identifier.to_string()),
             };
-            tokens.push(Token::with_value(token_type, start, end, identifier.to_string()));
+            tokens.push(Token::with_value(
+                token_type,
+                start,
+                end,
+                identifier.to_string(),
+            ));
             start = end;
             continue;
         }
@@ -129,7 +146,12 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
                 end += 1;
             }
             let integer_literal: i32 = code[start..end].parse().unwrap();
-            tokens.push(Token::with_integer_value(TokenType::IntegerLiteral(integer_literal), start, end, integer_literal));
+            tokens.push(Token::with_integer_value(
+                TokenType::IntegerLiteral(integer_literal),
+                start,
+                end,
+                integer_literal,
+            ));
             start = end;
             continue;
         }
@@ -142,7 +164,12 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
             if end < chars.len() {
                 end += 1; // Include the closing quote
                 let string_literal: String = code[start + 1..end - 1].to_string();
-                tokens.push(Token::with_value(TokenType::StringLiteral(string_literal.clone()), start, end, string_literal));
+                tokens.push(Token::with_value(
+                    TokenType::StringLiteral(string_literal.clone()),
+                    start,
+                    end,
+                    string_literal,
+                ));
             }
             start = end;
             continue;
@@ -156,90 +183,151 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
             if end < chars.len() {
                 end += 1; // Include the closing quote
                 let string_literal: String = code[start + 1..end - 1].to_string();
-                tokens.push(Token::with_value(TokenType::StringTemplate(string_literal.clone()), start, end, string_literal));
+                tokens.push(Token::with_value(
+                    TokenType::StringTemplate(string_literal.clone()),
+                    start,
+                    end,
+                    string_literal,
+                ));
             }
             start = end;
             continue;
         }
 
         if current_char == '(' {
-            tokens.push(Token::without_value(TokenType::LeftParen("(".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::LeftParen("(".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == ')' {
-            tokens.push(Token::without_value(TokenType::RightParen(")".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::RightParen(")".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '{' {
-            tokens.push(Token::without_value(TokenType::LeftBrace("{".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::LeftBrace("{".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '}' {
-            tokens.push(Token::without_value(TokenType::RightBrace("}".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::RightBrace("}".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '[' {
-            tokens.push(Token::without_value(TokenType::LeftBracket("[".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::LeftBracket("[".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == ']' {
-            tokens.push(Token::without_value(TokenType::RightBracket("]".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::RightBracket("]".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
         if current_char == ',' {
-            tokens.push(Token::without_value(TokenType::Comma(",".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Comma(",".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '+' {
-            tokens.push(Token::without_value(TokenType::Plus("+".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Plus("+".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '-' {
-            tokens.push(Token::without_value(TokenType::Minus("-".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Minus("-".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '*' {
-            tokens.push(Token::without_value(TokenType::Multiply("*".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Multiply("*".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '/' {
             // Division operator (comments are handled earlier)
-            tokens.push(Token::without_value(TokenType::Divider("/".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Divider("/".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '%' {
-            tokens.push(Token::without_value(TokenType::Mod("%".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Mod("%".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '=' {
             if start + 1 < chars.len() && chars[start + 1] == '=' {
-                tokens.push(Token::without_value(TokenType::Equal("==".to_string()), start, start + 2));
+                tokens.push(Token::without_value(
+                    TokenType::Equal("==".to_string()),
+                    start,
+                    start + 2,
+                ));
                 start += 2;
             } else {
-                tokens.push(Token::without_value(TokenType::Assign("=".to_string()), start, start + 1));
+                tokens.push(Token::without_value(
+                    TokenType::Assign("=".to_string()),
+                    start,
+                    start + 1,
+                ));
                 start += 1;
             }
             continue;
@@ -247,10 +335,18 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
 
         if current_char == '>' {
             if start + 1 < chars.len() && chars[start + 1] == '=' {
-                tokens.push(Token::without_value(TokenType::GreaterThanOrEqual(">=".to_string()), start, start + 2));
+                tokens.push(Token::without_value(
+                    TokenType::GreaterThanOrEqual(">=".to_string()),
+                    start,
+                    start + 2,
+                ));
                 start += 2;
             } else {
-                tokens.push(Token::without_value(TokenType::GreaterThan(">".to_string()), start, start + 1));
+                tokens.push(Token::without_value(
+                    TokenType::GreaterThan(">".to_string()),
+                    start,
+                    start + 1,
+                ));
                 start += 1;
             }
             continue;
@@ -258,10 +354,18 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
 
         if current_char == '<' {
             if start + 1 < chars.len() && chars[start + 1] == '=' {
-                tokens.push(Token::without_value(TokenType::LessThanOrEqual("<=".to_string()), start, start + 2));
+                tokens.push(Token::without_value(
+                    TokenType::LessThanOrEqual("<=".to_string()),
+                    start,
+                    start + 2,
+                ));
                 start += 2;
             } else {
-                tokens.push(Token::without_value(TokenType::LessThan("<".to_string()), start, start + 1));
+                tokens.push(Token::without_value(
+                    TokenType::LessThan("<".to_string()),
+                    start,
+                    start + 1,
+                ));
                 start += 1;
             }
             continue;
@@ -269,40 +373,69 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
 
         if current_char == '!' {
             if start + 1 < chars.len() && chars[start + 1] == '=' {
-                tokens.push(Token::without_value(TokenType::NotEqual("!=".to_string()), start, start + 2));
+                tokens.push(Token::without_value(
+                    TokenType::NotEqual("!=".to_string()),
+                    start,
+                    start + 2,
+                ));
                 start += 2; // Move past the '!='
             } else {
-                tokens.push(Token::without_value(TokenType::Not("!".to_string()), start, start + 1));
+                tokens.push(Token::without_value(
+                    TokenType::Not("!".to_string()),
+                    start,
+                    start + 1,
+                ));
                 start += 1;
             }
             continue;
         }
 
         if current_char == '&' {
-            tokens.push(Token::without_value(TokenType::And("&".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::And("&".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '|' {
-            tokens.push(Token::without_value(TokenType::Or("|".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Or("|".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '?' {
-            tokens.push(Token::without_value(TokenType::QuestionMark("?".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::QuestionMark("?".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
         if current_char == '.' {
-            tokens.push(Token::without_value(TokenType::Dot(".".to_string()), start, start + 1));
+            tokens.push(Token::without_value(
+                TokenType::Dot(".".to_string()),
+                start,
+                start + 1,
+            ));
             start += 1;
             continue;
         }
 
-        panic!("Unexpected character: {} at {}-{}", current_char, start, start + 1);
+        panic!(
+            "Unexpected character: {} at {}-{}",
+            current_char,
+            start,
+            start + 1
+        );
     }
 
     tokens

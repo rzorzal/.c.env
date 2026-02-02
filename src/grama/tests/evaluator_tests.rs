@@ -1,6 +1,6 @@
+use crate::grama::build_statements;
 use crate::grama::{Evaluator, RuntimeError};
 use crate::lexing;
-use crate::grama::build_statements;
 
 /// Helper to evaluate code and return output
 fn eval_code(code: &str) -> Result<Vec<String>, RuntimeError> {

@@ -6,9 +6,20 @@ pub struct Program {
 #[allow(dead_code, clippy::enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum Stmt {
-    VarDecl { private_: bool, name: Ident, value: Expr },
-    Assignment { target: Ident, value: Expr },
-    Import { path: Expr, is_aws_secret: bool, alias: Option<Ident> },
+    VarDecl {
+        private_: bool,
+        name: Ident,
+        value: Expr,
+    },
+    Assignment {
+        target: Ident,
+        value: Expr,
+    },
+    Import {
+        path: Expr,
+        is_aws_secret: bool,
+        alias: Option<Ident>,
+    },
     Block(Vec<Stmt>),
     Comment(String), // Hash comments preserved for .env output
     ExprStmt(Expr),
@@ -27,16 +38,36 @@ pub enum Expr {
     Ident(Ident),
 
     // Pós-fixos
-    Call { callee: Box<Expr>, args: Vec<Expr> },
-    Index { target: Box<Expr>, index: Box<Expr> },
-    Member { object: Box<Expr>, field: Ident },
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Index {
+        target: Box<Expr>,
+        index: Box<Expr>,
+    },
+    Member {
+        object: Box<Expr>,
+        field: Ident,
+    },
 
     // Unários e binários
-    Unary { op: UnaryOp, rhs: Box<Expr> },
-    Binary { lhs: Box<Expr>, op: BinOp, rhs: Box<Expr> },
+    Unary {
+        op: UnaryOp,
+        rhs: Box<Expr>,
+    },
+    Binary {
+        lhs: Box<Expr>,
+        op: BinOp,
+        rhs: Box<Expr>,
+    },
 
     // Ternário “if ... ? ... else ...”
-    IfExpr { cond: Box<Expr>, then_: Box<Expr>, else_: Box<Expr> },
+    IfExpr {
+        cond: Box<Expr>,
+        then_: Box<Expr>,
+        else_: Box<Expr>,
+    },
 
     // Compreensões
     ArrayComp(ArrayComp),
@@ -50,15 +81,26 @@ pub enum TemplatePart {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnaryOp { Plus, Minus }
+pub enum UnaryOp {
+    Plus,
+    Minus,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinOp {
-    Or,    // |
-    And,   // &
-    Eq, Ne,
-    Lt, Le, Gt, Ge,
-    Add, Sub, Mul, Div, Mod,
+    Or,  // |
+    And, // &
+    Eq,
+    Ne,
+    Lt,
+    Le,
+    Gt,
+    Ge,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
 }
 
 #[allow(dead_code)]
@@ -74,7 +116,7 @@ pub struct ArrayComp {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct FindComp {
-    pub select: Box<Expr>,         // o (<expr> & break) sem o marcador
+    pub select: Box<Expr>, // o (<expr> & break) sem o marcador
     pub var: Ident,
     pub mode: IterMode,
     pub iter: Box<Expr>,
@@ -82,7 +124,10 @@ pub struct FindComp {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IterMode { Of, In }
+pub enum IterMode {
+    Of,
+    In,
+}
 
 // Implementation of Program
 impl Program {

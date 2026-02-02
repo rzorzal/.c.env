@@ -13,7 +13,10 @@ mod import_statement_tests {
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens);
 
-        assert!(program.is_ok(), "Import statement should parse successfully");
+        assert!(
+            program.is_ok(),
+            "Import statement should parse successfully"
+        );
         let program = program.unwrap();
         assert_eq!(program.items.len(), 1);
     }
@@ -24,7 +27,10 @@ mod import_statement_tests {
         let tokens = lexing::analyze_code(code);
         let program = build_statements(&tokens);
 
-        assert!(program.is_ok(), "import_aws_secret should parse successfully");
+        assert!(
+            program.is_ok(),
+            "import_aws_secret should parse successfully"
+        );
         let program = program.unwrap();
         assert_eq!(program.items.len(), 1);
     }
@@ -59,7 +65,10 @@ mod import_statement_tests {
         // But should fail at runtime
         let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program.unwrap());
-        assert!(result.is_err(), "Import with non-string should fail at runtime");
+        assert!(
+            result.is_err(),
+            "Import with non-string should fail at runtime"
+        );
         let err = result.unwrap_err();
         assert!(err.message.contains("string") || err.message.contains("expects"));
     }
@@ -76,7 +85,10 @@ mod import_statement_tests {
         // But should fail at runtime (wrong arg count)
         let mut evaluator = Evaluator::with_module(None);
         let result = evaluator.eval_program(&program.unwrap());
-        assert!(result.is_err(), "Import with wrong arg count should fail at runtime");
+        assert!(
+            result.is_err(),
+            "Import with wrong arg count should fail at runtime"
+        );
         let err = result.unwrap_err();
         assert!(err.message.contains("1") || err.message.contains("argument"));
     }
@@ -97,8 +109,11 @@ mod import_execution_tests {
 
         assert!(result.is_err(), "Import of nonexistent file should fail");
         let err = result.unwrap_err();
-        assert!(err.message.contains("Failed to resolve") || err.message.contains("Failed to read"),
-                "Error should mention file failure, got: {}", err.message);
+        assert!(
+            err.message.contains("Failed to resolve") || err.message.contains("Failed to read"),
+            "Error should mention file failure, got: {}",
+            err.message
+        );
     }
 
     #[test]
@@ -110,7 +125,10 @@ mod import_execution_tests {
         let mut evaluator = Evaluator::new();
         let result = evaluator.eval_program(&program);
 
-        assert!(result.is_ok(), "AWS secret import should succeed with placeholder");
+        assert!(
+            result.is_ok(),
+            "AWS secret import should succeed with placeholder"
+        );
     }
 
     #[test]
@@ -132,7 +150,10 @@ print(config.X_VALUE)
         // Clean up
         std::fs::remove_dir_all("test_imports_vars").ok();
 
-        assert!(result.is_ok(), "Import should work and make variables accessible");
+        assert!(
+            result.is_ok(),
+            "Import should work and make variables accessible"
+        );
         let output = result.unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], "42");
@@ -157,8 +178,16 @@ print(config.X_VALUE)
     fn test_circular_import_detection() {
         // Create two files that import each other
         std::fs::create_dir_all("test_imports_circular").ok();
-        std::fs::write("test_imports_circular/file_a.cenv", "private b = import(\"file_b.cenv\")\n").unwrap();
-        std::fs::write("test_imports_circular/file_b.cenv", "private a = import(\"file_a.cenv\")\n").unwrap();
+        std::fs::write(
+            "test_imports_circular/file_a.cenv",
+            "private b = import(\"file_b.cenv\")\n",
+        )
+        .unwrap();
+        std::fs::write(
+            "test_imports_circular/file_b.cenv",
+            "private a = import(\"file_a.cenv\")\n",
+        )
+        .unwrap();
 
         let code = r#"private a = import("test_imports_circular/file_a.cenv")"#;
         let tokens = lexing::analyze_code(code);
@@ -177,9 +206,16 @@ print(config.X_VALUE)
         // Clean up
         std::fs::remove_dir_all("test_imports_circular").ok();
 
-        assert!(is_err, "Circular imports should be detected, got: {:?}", result);
-        assert!(err_msg.contains("Circular import"),
-                "Error should mention circular import, got: {}", err_msg);
+        assert!(
+            is_err,
+            "Circular imports should be detected, got: {:?}",
+            result
+        );
+        assert!(
+            err_msg.contains("Circular import"),
+            "Error should mention circular import, got: {}",
+            err_msg
+        );
     }
 
     #[test]
@@ -211,7 +247,11 @@ print(c)
         // Clean up
         std::fs::remove_dir_all("test_imports_multi").ok();
 
-        assert!(is_ok, "Multiple imports should work, got error: {}", err_msg);
+        assert!(
+            is_ok,
+            "Multiple imports should work, got error: {}",
+            err_msg
+        );
         let output = result.unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], "30");
@@ -282,7 +322,11 @@ mod import_object_tests {
     #[test]
     fn test_import_returns_object() {
         std::fs::create_dir_all("test_import_obj").ok();
-        std::fs::write("test_import_obj/config.cenv", "API_KEY = \"secret123\"\nAPI_URL = \"https://api.example.com\"\n").unwrap();
+        std::fs::write(
+            "test_import_obj/config.cenv",
+            "API_KEY = \"secret123\"\nAPI_URL = \"https://api.example.com\"\n",
+        )
+        .unwrap();
 
         let code = r#"
 private config = import("test_import_obj/config.cenv")
@@ -305,7 +349,11 @@ print(type(config))
     #[test]
     fn test_member_access_on_import() {
         std::fs::create_dir_all("test_member_access").ok();
-        std::fs::write("test_member_access/db.cenv", "DATABASE_URL = \"postgresql://localhost/db\"\nDATABASE_PORT = 5432\n").unwrap();
+        std::fs::write(
+            "test_member_access/db.cenv",
+            "DATABASE_URL = \"postgresql://localhost/db\"\nDATABASE_PORT = 5432\n",
+        )
+        .unwrap();
 
         let code = r#"
 private db = import("test_member_access/db.cenv")
@@ -329,14 +377,21 @@ print("Port:", db.DATABASE_PORT)
 
         // Check that DATABASE_URL was added to public variables
         let env_output = evaluator.get_env_output();
-        assert!(env_output.iter().any(|line| line.starts_with("DATABASE_URL=")));
+        assert!(
+            env_output
+                .iter()
+                .any(|line| line.starts_with("DATABASE_URL="))
+        );
     }
 
     #[test]
     fn test_import_only_public_vars() {
         std::fs::create_dir_all("test_public_only").ok();
-        std::fs::write("test_public_only/vars.cenv",
-            "PUBLIC_VAR = \"visible\"\nprivate PRIVATE_VAR = \"hidden\"\n").unwrap();
+        std::fs::write(
+            "test_public_only/vars.cenv",
+            "PUBLIC_VAR = \"visible\"\nprivate PRIVATE_VAR = \"hidden\"\n",
+        )
+        .unwrap();
 
         let code = r#"
 private vars = import("test_public_only/vars.cenv")

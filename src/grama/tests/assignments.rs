@@ -2,7 +2,7 @@
 // Tests for variable reassignment functionality
 
 use super::helpers::*;
-use crate::grama::gramma_rules::{Expr, BinOp, Stmt};
+use crate::grama::gramma_rules::{BinOp, Expr, Stmt};
 
 #[test]
 fn test_simple_assignment() {
@@ -11,13 +11,25 @@ private x = 5
 x = 10
 "#;
     let program = parse_program(code).expect("Should parse assignment");
-    assert_eq!(program.items.len(), 2, "Should have declaration and reassignment");
+    assert_eq!(
+        program.items.len(),
+        2,
+        "Should have declaration and reassignment"
+    );
 
     // Check that first is a private declaration
-    assert!(matches!(program.items[0], Stmt::VarDecl { private_: true, .. }));
+    assert!(matches!(
+        program.items[0],
+        Stmt::VarDecl { private_: true, .. }
+    ));
 
     // Check that second is a public variable declaration (reassignment)
-    if let Stmt::VarDecl { name, value, private_ } = &program.items[1] {
+    if let Stmt::VarDecl {
+        name,
+        value,
+        private_,
+    } = &program.items[1]
+    {
         assert_eq!(name, "x");
         assert!(!private_, "Reassignment should be public");
         assert!(matches!(value, Expr::Number(10.0)));
@@ -68,11 +80,25 @@ b = 20
 a = 30
 "#;
     let program = parse_program(code).expect("Should parse multiple assignments");
-    assert_eq!(program.items.len(), 5, "Should have 2 private declarations and 3 public reassignments");
+    assert_eq!(
+        program.items.len(),
+        5,
+        "Should have 2 private declarations and 3 public reassignments"
+    );
 
     // Count public variable declarations (reassignments)
-    let reassignment_count = program.items.iter()
-        .filter(|stmt| matches!(stmt, Stmt::VarDecl { private_: false, .. }))
+    let reassignment_count = program
+        .items
+        .iter()
+        .filter(|stmt| {
+            matches!(
+                stmt,
+                Stmt::VarDecl {
+                    private_: false,
+                    ..
+                }
+            )
+        })
         .count();
     assert_eq!(reassignment_count, 3, "Should have 3 public reassignments");
 }
@@ -87,7 +113,12 @@ result = (10 + 5) * 2 - 3
     let expr = extract_assignment_expr(&program, "result").expect("Should find assignment");
 
     // Should parse as ((10 + 5) * 2) - 3
-    if let Expr::Binary { op: BinOp::Sub, lhs, rhs } = expr {
+    if let Expr::Binary {
+        op: BinOp::Sub,
+        lhs,
+        rhs,
+    } = expr
+    {
         assert!(matches!(**lhs, Expr::Binary { op: BinOp::Mul, .. }));
         assert!(matches!(**rhs, Expr::Number(3.0)));
     } else {
@@ -105,7 +136,12 @@ flag = true & false | true
     let expr = extract_assignment_expr(&program, "flag").expect("Should find assignment");
 
     // Should parse as (true & false) | true (& has higher precedence than |)
-    if let Expr::Binary { op: BinOp::Or, lhs, rhs } = expr {
+    if let Expr::Binary {
+        op: BinOp::Or,
+        lhs,
+        rhs,
+    } = expr
+    {
         assert!(matches!(**lhs, Expr::Binary { op: BinOp::And, .. }));
         assert!(matches!(**rhs, Expr::Bool(true)));
     } else {
@@ -143,10 +179,37 @@ c = 6
 
     // Check the sequence
     // In C.env, lowercase 'identifier = value' is treated as public VarDecl (reassignment)
-    assert!(matches!(program.items[0], Stmt::VarDecl { private_: true, .. })); // private a = 1
-    assert!(matches!(program.items[1], Stmt::VarDecl { private_: true, .. })); // private b = 2
-    assert!(matches!(program.items[2], Stmt::VarDecl { private_: false, .. })); // a = 3 (public reassignment)
-    assert!(matches!(program.items[3], Stmt::VarDecl { private_: true, .. })); // private c = 4
-    assert!(matches!(program.items[4], Stmt::VarDecl { private_: false, .. })); // b = 5 (public reassignment)
-    assert!(matches!(program.items[5], Stmt::VarDecl { private_: false, .. })); // c = 6 (public reassignment)
+    assert!(matches!(
+        program.items[0],
+        Stmt::VarDecl { private_: true, .. }
+    )); // private a = 1
+    assert!(matches!(
+        program.items[1],
+        Stmt::VarDecl { private_: true, .. }
+    )); // private b = 2
+    assert!(matches!(
+        program.items[2],
+        Stmt::VarDecl {
+            private_: false,
+            ..
+        }
+    )); // a = 3 (public reassignment)
+    assert!(matches!(
+        program.items[3],
+        Stmt::VarDecl { private_: true, .. }
+    )); // private c = 4
+    assert!(matches!(
+        program.items[4],
+        Stmt::VarDecl {
+            private_: false,
+            ..
+        }
+    )); // b = 5 (public reassignment)
+    assert!(matches!(
+        program.items[5],
+        Stmt::VarDecl {
+            private_: false,
+            ..
+        }
+    )); // c = 6 (public reassignment)
 }

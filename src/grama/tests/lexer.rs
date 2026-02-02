@@ -2,7 +2,7 @@
 // Tests for tokenization, comments, and operators
 
 use super::helpers::*;
-use crate::grama::gramma_rules::{Expr, BinOp};
+use crate::grama::gramma_rules::{BinOp, Expr};
 
 #[test]
 fn test_single_line_comments() {
@@ -14,7 +14,11 @@ private x = 5 // End of line comment
     assert!(result.is_ok(), "Should parse with single-line comments");
 
     let program = result.unwrap();
-    assert_eq!(program.items.len(), 1, "Should have 1 statement (comment removed)");
+    assert_eq!(
+        program.items.len(),
+        1,
+        "Should have 1 statement (comment removed)"
+    );
 }
 
 #[test]

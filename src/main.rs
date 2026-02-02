@@ -1,5 +1,5 @@
-mod lexing;
 mod grama;
+mod lexing;
 
 use std::env;
 use std::fs;

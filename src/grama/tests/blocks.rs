@@ -2,9 +2,9 @@
 
 #[cfg(test)]
 mod block_statement_tests {
+    use crate::grama::evaluator::Evaluator;
     use crate::grama::gramma_rules::Stmt;
     use crate::grama::parser::build_statements;
-    use crate::grama::evaluator::Evaluator;
     use crate::lexing;
 
     #[test]
@@ -72,10 +72,18 @@ mod block_statement_tests {
         assert_eq!(program.items.len(), 1);
         match &program.items[0] {
             Stmt::Block(outer_stmts) => {
-                assert_eq!(outer_stmts.len(), 2, "Outer block should have two statements");
+                assert_eq!(
+                    outer_stmts.len(),
+                    2,
+                    "Outer block should have two statements"
+                );
                 match &outer_stmts[1] {
                     Stmt::Block(inner_stmts) => {
-                        assert_eq!(inner_stmts.len(), 1, "Inner block should have one statement");
+                        assert_eq!(
+                            inner_stmts.len(),
+                            1,
+                            "Inner block should have one statement"
+                        );
                     }
                     _ => panic!("Expected nested Block statement"),
                 }
@@ -109,7 +117,10 @@ print(y)"#;
         let mut evaluator = Evaluator::new();
         let result = evaluator.eval_program(&program);
 
-        assert!(result.is_ok(), "Block with statements should execute successfully");
+        assert!(
+            result.is_ok(),
+            "Block with statements should execute successfully"
+        );
         let output = result.unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], "15");
@@ -129,7 +140,10 @@ print(y)"#;
         let mut evaluator = Evaluator::new();
         let result = evaluator.eval_program(&program);
 
-        assert!(result.is_ok(), "Variables from block should be accessible outside");
+        assert!(
+            result.is_ok(),
+            "Variables from block should be accessible outside"
+        );
         let output = result.unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], "15");
@@ -149,7 +163,10 @@ print(x)"#;
         let mut evaluator = Evaluator::new();
         let result = evaluator.eval_program(&program);
 
-        assert!(result.is_ok(), "Block should be able to modify outer variables");
+        assert!(
+            result.is_ok(),
+            "Block should be able to modify outer variables"
+        );
         let output = result.unwrap();
         assert_eq!(output.len(), 1);
         assert_eq!(output[0], "20");
@@ -206,8 +223,11 @@ print(result)"#;
         assert!(result.is_err(), "Unmatched brace should cause error");
         let err = result.unwrap_err();
         let err_msg = format!("{}", err);
-        assert!(err_msg.contains("Unmatched") || err_msg.contains("brace"),
-                "Error should mention unmatched brace, got: {}", err_msg);
+        assert!(
+            err_msg.contains("Unmatched") || err_msg.contains("brace"),
+            "Error should mention unmatched brace, got: {}",
+            err_msg
+        );
     }
 
     #[test]

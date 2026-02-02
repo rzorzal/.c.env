@@ -1,8 +1,8 @@
-use crate::grama::gramma_rules::{Expr, Stmt, Program, BinOp, UnaryOp, TemplatePart};
+use crate::grama::gramma_rules::{BinOp, Expr, Program, Stmt, TemplatePart, UnaryOp};
 use crate::grama::value::Value;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Runtime errors that can occur during evaluation
 #[derive(Debug, Clone)]
@@ -193,7 +193,7 @@ impl Evaluator {
                 } else {
                     s.clone()
                 }
-            },
+            }
             Value::Number(n) => n.to_string(),
             Value::Bool(b) => b.to_string(),
             Value::Null => String::new(),
@@ -204,13 +204,18 @@ impl Evaluator {
 
     fn eval_statement(&mut self, stmt: &Stmt) -> EvalResult<()> {
         match stmt {
-            Stmt::VarDecl { name, value, private_ } => {
+            Stmt::VarDecl {
+                name,
+                value,
+                private_,
+            } => {
                 let val = self.eval_expr(value)?;
                 self.env.define(name.clone(), val.clone());
                 // If not private, add to public_vars for .env output
                 if !private_ {
                     self.public_vars.insert(name.clone(), val);
-                    self.env_output_lines.push(EnvOutputLine::Variable(name.clone()));
+                    self.env_output_lines
+                        .push(EnvOutputLine::Variable(name.clone()));
                 }
                 Ok(())
             }
@@ -220,10 +225,15 @@ impl Evaluator {
             }
             Stmt::Import { is_aws_secret, .. } => {
                 // Import must be assigned to a variable
-                let fn_name = if *is_aws_secret { "import_aws_secret" } else { "import" };
-                Err(RuntimeError::new(
-                    format!("{}() must be assigned to a variable. Use: private var = {}(\"path\")", fn_name, fn_name)
-                ))
+                let fn_name = if *is_aws_secret {
+                    "import_aws_secret"
+                } else {
+                    "import"
+                };
+                Err(RuntimeError::new(format!(
+                    "{}() must be assigned to a variable. Use: private var = {}(\"path\")",
+                    fn_name, fn_name
+                )))
             }
             Stmt::Block(statements) => {
                 // Execute each statement in the block
@@ -235,7 +245,8 @@ impl Evaluator {
             }
             Stmt::Comment(text) => {
                 // Comments are preserved in .env output
-                self.env_output_lines.push(EnvOutputLine::Comment(text.clone()));
+                self.env_output_lines
+                    .push(EnvOutputLine::Comment(text.clone()));
                 Ok(())
             }
             Stmt::ExprStmt(expr) => {
@@ -268,9 +279,7 @@ impl Evaluator {
                 Ok(Value::String(result))
             }
 
-            Expr::Call { callee, args } => {
-                self.eval_call(callee, args)
-            }
+            Expr::Call { callee, args } => self.eval_call(callee, args),
 
             Expr::Index { target, index } => {
                 let target_val = self.eval_expr(target)?;
@@ -281,14 +290,14 @@ impl Evaluator {
             Expr::Member { object, field } => {
                 let obj_val = self.eval_expr(object)?;
                 match obj_val {
-                    Value::Object(map) => {
-                        map.get(field).cloned().ok_or_else(|| {
-                            RuntimeError::new(format!("Object has no field '{}'", field))
-                        })
-                    }
-                    _ => Err(RuntimeError::new(
-                        format!("Cannot access field '{}' on non-object type {}", field, obj_val.type_name())
-                    )),
+                    Value::Object(map) => map.get(field).cloned().ok_or_else(|| {
+                        RuntimeError::new(format!("Object has no field '{}'", field))
+                    }),
+                    _ => Err(RuntimeError::new(format!(
+                        "Cannot access field '{}' on non-object type {}",
+                        field,
+                        obj_val.type_name()
+                    ))),
                 }
             }
 
@@ -313,12 +322,10 @@ impl Evaluator {
             }
 
             // Array comprehensions and find comprehensions not yet implemented
-            Expr::ArrayComp(_) => {
-                Err(RuntimeError::new("Array comprehensions not yet implemented"))
-            }
-            Expr::FindComp(_) => {
-                Err(RuntimeError::new("Find comprehensions not yet implemented"))
-            }
+            Expr::ArrayComp(_) => Err(RuntimeError::new(
+                "Array comprehensions not yet implemented",
+            )),
+            Expr::FindComp(_) => Err(RuntimeError::new("Find comprehensions not yet implemented")),
         }
     }
 
@@ -327,7 +334,9 @@ impl Evaluator {
         if let Expr::Ident(name) = callee {
             self.eval_builtin_function(name, args)
         } else {
-            Err(RuntimeError::new("Only built-in functions are currently supported"))
+            Err(RuntimeError::new(
+                "Only built-in functions are currently supported",
+            ))
         }
     }
 
@@ -376,7 +385,7 @@ impl Evaluator {
             _ => Err(RuntimeError::type_error(
                 "string, array, or object",
                 val.type_name(),
-                "len()"
+                "len()",
             )),
         }
     }
@@ -407,17 +416,16 @@ impl Evaluator {
         let val = self.eval_expr(&args[0])?;
         match val {
             Value::Number(n) => Ok(Value::Number(n)),
-            Value::String(s) => {
-                s.parse::<f64>()
-                    .map(Value::Number)
-                    .map_err(|_| RuntimeError::new(format!("Cannot convert '{}' to number", s)))
-            }
+            Value::String(s) => s
+                .parse::<f64>()
+                .map(Value::Number)
+                .map_err(|_| RuntimeError::new(format!("Cannot convert '{}' to number", s))),
             Value::Bool(b) => Ok(Value::Number(if b { 1.0 } else { 0.0 })),
             Value::Null => Ok(Value::Number(0.0)),
             Value::Array(_) | Value::Object(_) => Err(RuntimeError::type_error(
                 "number, string, or boolean",
                 val.type_name(),
-                "num()"
+                "num()",
             )),
         }
     }
@@ -433,7 +441,11 @@ impl Evaluator {
 
     fn builtin_import(&mut self, args: &[Expr], is_aws_secret: bool) -> EvalResult<Value> {
         if args.len() != 1 {
-            let fn_name = if is_aws_secret { "import_aws_secret" } else { "import" };
+            let fn_name = if is_aws_secret {
+                "import_aws_secret"
+            } else {
+                "import"
+            };
             return Err(RuntimeError::wrong_arg_count(fn_name, 1, args.len()));
         }
 
@@ -442,10 +454,16 @@ impl Evaluator {
         let path_str = match path_value {
             Value::String(s) => s,
             _ => {
-                let fn_name = if is_aws_secret { "import_aws_secret" } else { "import" };
-                return Err(RuntimeError::new(
-                    format!("{}() expects a string path, got {}", fn_name, path_value.type_name())
-                ));
+                let fn_name = if is_aws_secret {
+                    "import_aws_secret"
+                } else {
+                    "import"
+                };
+                return Err(RuntimeError::new(format!(
+                    "{}() expects a string path, got {}",
+                    fn_name,
+                    path_value.type_name()
+                )));
             }
         };
 
@@ -471,7 +489,7 @@ impl Evaluator {
             (target, index) => Err(RuntimeError::type_error(
                 "array or string with numeric index",
                 &format!("{}[{}]", target.type_name(), index.type_name()),
-                "indexing"
+                "indexing",
             )),
         }
     }
@@ -480,11 +498,19 @@ impl Evaluator {
         match op {
             UnaryOp::Plus => match val {
                 Value::Number(n) => Ok(Value::Number(n)),
-                _ => Err(RuntimeError::type_error("number", val.type_name(), "unary +")),
+                _ => Err(RuntimeError::type_error(
+                    "number",
+                    val.type_name(),
+                    "unary +",
+                )),
             },
             UnaryOp::Minus => match val {
                 Value::Number(n) => Ok(Value::Number(-n)),
-                _ => Err(RuntimeError::type_error("number", val.type_name(), "unary -")),
+                _ => Err(RuntimeError::type_error(
+                    "number",
+                    val.type_name(),
+                    "unary -",
+                )),
             },
         }
     }
@@ -497,7 +523,7 @@ impl Evaluator {
                 (a, b) => Err(RuntimeError::type_error(
                     "number + number or string + string",
                     &format!("{} + {}", a.type_name(), b.type_name()),
-                    "addition"
+                    "addition",
                 )),
             },
             BinOp::Sub => self.numeric_binop(left, right, |a, b| a - b, "-"),
@@ -527,7 +553,7 @@ impl Evaluator {
             (a, b) => Err(RuntimeError::type_error(
                 "number",
                 &format!("{} {} {}", a.type_name(), op_str, b.type_name()),
-                &format!("operator '{}'", op_str)
+                &format!("operator '{}'", op_str),
             )),
         }
     }
@@ -541,7 +567,7 @@ impl Evaluator {
             (a, b) => Err(RuntimeError::type_error(
                 "number",
                 &format!("{} vs {}", a.type_name(), b.type_name()),
-                "comparison"
+                "comparison",
             )),
         }
     }
@@ -553,7 +579,10 @@ impl Evaluator {
             (Value::Bool(x), Value::Bool(y)) => x == y,
             (Value::Null, Value::Null) => true,
             (Value::Array(x), Value::Array(y)) => {
-                x.len() == y.len() && x.iter().zip(y.iter()).all(|(a, b)| Self::values_equal(a, b))
+                x.len() == y.len()
+                    && x.iter()
+                        .zip(y.iter())
+                        .all(|(a, b)| Self::values_equal(a, b))
             }
             _ => false,
         }
@@ -564,7 +593,10 @@ impl Evaluator {
         if is_aws_secret {
             // For now, we'll just return an empty object with a note
             // In a real implementation, this would fetch from AWS Secrets Manager
-            self.output.push(format!("Note: import_aws_secret('{}') would fetch from AWS Secrets Manager", path));
+            self.output.push(format!(
+                "Note: import_aws_secret('{}') would fetch from AWS Secrets Manager",
+                path
+            ));
             return Ok(Value::Object(HashMap::new()));
         }
 
@@ -584,7 +616,10 @@ impl Evaluator {
 
         // Check for circular imports
         if self.imported_files.contains_key(&canonical_str) {
-            return Err(RuntimeError::new(format!("Circular import detected: '{}'", path)));
+            return Err(RuntimeError::new(format!(
+                "Circular import detected: '{}'",
+                path
+            )));
         }
 
         // Mark as importing (to detect circular imports)

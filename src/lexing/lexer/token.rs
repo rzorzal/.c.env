@@ -1,6 +1,6 @@
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Token{
+pub enum Token {
     // Keywords
     Print(String),
     If(String),
@@ -25,45 +25,44 @@ pub enum Token{
     Identifier(String), // =
 
     // Operators
-    Pow(String), // ^
+    Pow(String),      // ^
     Multiply(String), // *
-    Divider(String), // /
-    Mod(String), // %
-    Minus(String), // -
-    Plus(String), // +
-    Assign(String), // =
+    Divider(String),  // /
+    Mod(String),      // %
+    Minus(String),    // -
+    Plus(String),     // +
+    Assign(String),   // =
 
     // Punctuation
-    LeftParen(String), // (
-    RightParen(String), // )
-    LeftBrace(String), // {
-    RightBrace(String), // }
-    LeftBracket(String), // [
+    LeftParen(String),    // (
+    RightParen(String),   // )
+    LeftBrace(String),    // {
+    RightBrace(String),   // }
+    LeftBracket(String),  // [
     RightBracket(String), // ]
-    Comma(String), // ,
-    Dot(String), // .
-    Dollar(String), // $
-    Backtick(String), // Backtick for template literals ``
-    Quote(String), // Single quote
-    DoubleQuote(String), // Double quote
-    Slash(String), // /
-    BackSlash(String), // \
-    Colon(String), // :
-    Semicolon(String), // ;
+    Comma(String),        // ,
+    Dot(String),          // .
+    Dollar(String),       // $
+    Backtick(String),     // Backtick for template literals ``
+    Quote(String),        // Single quote
+    DoubleQuote(String),  // Double quote
+    Slash(String),        // /
+    BackSlash(String),    // \
+    Colon(String),        // :
+    Semicolon(String),    // ;
     QuestionMark(String), // ?
 
-
     // Logical Operators
-    GreaterThan(String), // >
-    LessThan(String), // <
+    GreaterThan(String),        // >
+    LessThan(String),           // <
     GreaterThanOrEqual(String), // >=
-    LessThanOrEqual(String), // <=
-    Equal(String), // ==
-    NotEqual(String), // !=
+    LessThanOrEqual(String),    // <=
+    Equal(String),              // ==
+    NotEqual(String),           // !=
 
     // Logical Expressions
     And(String), // &
-    Or(String), // |
+    Or(String),  // |
     Not(String), // !
 
     // Blank

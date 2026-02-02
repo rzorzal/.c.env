@@ -1,11 +1,11 @@
-mod parser;
-mod gramma_rules;
 mod error;
-mod value;
 mod evaluator;
+mod gramma_rules;
+mod parser;
+mod value;
 
 #[cfg(test)]
 mod tests;
 
-pub use parser::*;
 pub use evaluator::*;
+pub use parser::*;
