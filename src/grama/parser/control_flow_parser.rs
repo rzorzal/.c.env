@@ -22,9 +22,7 @@ pub(super) fn parse_if_expression(tokens: &[lexing::Token]) -> ParseResult<Expr>
     match &tokens[question_idx].token_type {
       lexing::TokenType::LeftParen(_) => paren_count += 1,
       lexing::TokenType::RightParen(_) => {
-        if paren_count > 0 {
-          paren_count -= 1;
-        }
+        paren_count = paren_count.saturating_sub(1);
       },
       lexing::TokenType::QuestionMark(_) if paren_count == 0 => break,
       _ => {}
@@ -51,9 +49,7 @@ pub(super) fn parse_if_expression(tokens: &[lexing::Token]) -> ParseResult<Expr>
     match &tokens[else_idx].token_type {
       lexing::TokenType::LeftParen(_) => paren_count += 1,
       lexing::TokenType::RightParen(_) => {
-        if paren_count > 0 {
-          paren_count -= 1;
-        }
+        paren_count = paren_count.saturating_sub(1);
       },
       lexing::TokenType::Else(_) if paren_count == 0 => break,
       _ => {}

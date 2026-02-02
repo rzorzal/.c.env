@@ -78,6 +78,7 @@ fn parse_statements(stmts: &[Vec<lexing::Token>]) -> ParseResult<Vec<Stmt>> {
 
 /// Parse an expression from a token sequence
 /// This is exposed for internal use and testing
+#[allow(dead_code)]
 pub fn parse_expression(tokens: &[lexing::Token]) -> ParseResult<Expr> {
   expression_parser::parse_expression(tokens)
 }

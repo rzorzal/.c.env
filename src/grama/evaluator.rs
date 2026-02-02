@@ -56,6 +56,12 @@ pub struct Environment {
     variables: HashMap<String, Value>,
 }
 
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Environment {
     pub fn new() -> Self {
         Self {
@@ -101,6 +107,12 @@ enum EnvOutputLine {
     Comment(String),  // Comment text (including the # prefix)
 }
 
+impl Default for Evaluator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Evaluator {
     pub fn new() -> Self {
         Self::with_module(None)
@@ -122,6 +134,7 @@ impl Evaluator {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_base_path(base_path: PathBuf) -> Self {
         Self {
             env: Environment::new(),
@@ -497,8 +510,8 @@ impl Evaluator {
             BinOp::Gt => self.comparison_binop(left, right, |a, b| a > b),
             BinOp::Ge => self.comparison_binop(left, right, |a, b| a >= b),
 
-            BinOp::Eq => Ok(Value::Bool(self.values_equal(&left, &right))),
-            BinOp::Ne => Ok(Value::Bool(!self.values_equal(&left, &right))),
+            BinOp::Eq => Ok(Value::Bool(Self::values_equal(&left, &right))),
+            BinOp::Ne => Ok(Value::Bool(!Self::values_equal(&left, &right))),
 
             BinOp::And => Ok(Value::Bool(left.is_truthy() && right.is_truthy())),
             BinOp::Or => Ok(Value::Bool(left.is_truthy() || right.is_truthy())),
@@ -533,14 +546,14 @@ impl Evaluator {
         }
     }
 
-    fn values_equal(&self, a: &Value, b: &Value) -> bool {
+    fn values_equal(a: &Value, b: &Value) -> bool {
         match (a, b) {
             (Value::Number(x), Value::Number(y)) => x == y,
             (Value::String(x), Value::String(y)) => x == y,
             (Value::Bool(x), Value::Bool(y)) => x == y,
             (Value::Null, Value::Null) => true,
             (Value::Array(x), Value::Array(y)) => {
-                x.len() == y.len() && x.iter().zip(y.iter()).all(|(a, b)| self.values_equal(a, b))
+                x.len() == y.len() && x.iter().zip(y.iter()).all(|(a, b)| Self::values_equal(a, b))
             }
             _ => false,
         }

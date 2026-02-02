@@ -123,9 +123,9 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
         }
 
         // Example: Handle integer literals
-        if current_char.is_digit(10) {
+        if current_char.is_ascii_digit() {
             let mut end: usize = start + 1;
-            while end < chars.len() && chars[end].is_digit(10) {
+            while end < chars.len() && chars[end].is_ascii_digit() {
                 end += 1;
             }
             let integer_literal: i32 = code[start..end].parse().unwrap();

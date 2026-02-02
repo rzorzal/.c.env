@@ -43,7 +43,7 @@ pub(super) fn parse_array_expression(tokens: &[lexing::Token]) -> ParseResult<Ex
   // Note: The Expr enum doesn't have a dedicated Array variant in your grammar,
   // but we can create a template with elements as parts
   let template_parts: Vec<_> = elements.into_iter()
-    .map(|expr| TemplatePart::Expr(expr))
+    .map(TemplatePart::Expr)
     .collect();
 
   Ok(Expr::Template(template_parts))

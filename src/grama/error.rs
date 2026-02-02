@@ -14,6 +14,7 @@ pub struct ParseError {
 }
 
 /// The kind of parse error
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum ParseErrorKind {
     /// Unexpected end of input
@@ -60,6 +61,7 @@ impl ParseError {
     }
 
     /// Create a parse error with an end position
+    #[allow(dead_code)]
     pub fn with_span(kind: ParseErrorKind, start: usize, end: usize) -> Self {
         ParseError {
             kind,
@@ -76,6 +78,7 @@ impl ParseError {
     }
 
     /// Create an unexpected EOF error
+    #[allow(dead_code)]
     pub fn unexpected_eof(position: usize) -> Self {
         ParseError::new(ParseErrorKind::UnexpectedEof, position)
     }

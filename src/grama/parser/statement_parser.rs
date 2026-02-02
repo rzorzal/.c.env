@@ -28,14 +28,12 @@ pub(super) fn parse_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
     }
     _ => {
       // Check if it's an assignment or public variable declaration: identifier followed by '='
-      if tokens.len() >= 2 {
-        if let lexing::TokenType::Identifier(_name) = &tokens[0].token_type {
-          if let lexing::TokenType::Assign(_) = &tokens[1].token_type {
+      if tokens.len() >= 2
+        && let lexing::TokenType::Identifier(_name) = &tokens[0].token_type
+        && let lexing::TokenType::Assign(_) = &tokens[1].token_type {
             // In C.env, 'identifier = value' without 'private' is a public variable declaration
             // This handles both first-time declarations and reassignments
             return parse_var_declaration(tokens, false);
-          }
-        }
       }
 
       // If not a variable declaration or assignment, try to parse as expression statement
@@ -98,54 +96,6 @@ fn parse_var_declaration(tokens: &[lexing::Token], is_private: bool) -> ParseRes
     &format!("{:?}", tokens[start_idx].token_type),
     tokens[start_idx].start
   ))
-}
-
-fn parse_assignment(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
-  // tokens[0] should be an identifier, tokens[1] should be '='
-  if tokens.is_empty() {
-    return Err(ParseError::invalid_statement("Empty assignment", 0));
-  }
-
-  // Extract the target identifier
-  let target = if let lexing::TokenType::Identifier(name) = &tokens[0].token_type {
-    name.clone()
-  } else {
-    return Err(ParseError::unexpected_token(
-      "identifier",
-      &format!("{:?}", tokens[0].token_type),
-      tokens[0].start
-    ));
-  };
-
-  // Check for equals sign
-  if tokens.len() < 2 {
-    return Err(ParseError::unexpected_token(
-      "'='",
-      "end of statement",
-      tokens[0].end
-    ));
-  }
-
-  if !matches!(tokens[1].token_type, lexing::TokenType::Assign(_)) {
-    return Err(ParseError::unexpected_token(
-      "'='",
-      &format!("{:?}", tokens[1].token_type),
-      tokens[1].start
-    ));
-  }
-
-  // Parse the value expression
-  if tokens.len() < 3 {
-    return Err(ParseError::invalid_expression(
-      "Expected value after '='",
-      tokens[1].end
-    ));
-  }
-
-  let expr_tokens = &tokens[2..];
-  let value = expression_parser::parse_expression(expr_tokens)?;
-
-  Ok(Stmt::Assignment { target, value })
 }
 
 fn parse_import_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {

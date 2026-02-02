@@ -1,6 +1,7 @@
 // Test helper functions shared across all test modules
 
-use crate::grama::{build_statements, parse_binary_expression};
+use crate::grama::build_statements;
+use crate::grama::parser::operator::parse_binary_expression;
 use crate::grama::gramma_rules::{Expr, Stmt, Program};
 use crate::lexing;
 

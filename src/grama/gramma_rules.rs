@@ -3,6 +3,7 @@ pub struct Program {
     pub items: Vec<Stmt>,
 }
 
+#[allow(dead_code, clippy::enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum Stmt {
     VarDecl { private_: bool, name: Ident, value: Expr },
@@ -15,6 +16,7 @@ pub enum Stmt {
 
 pub type Ident = String;
 
+#[allow(dead_code, clippy::enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum Expr {
     Number(f64),
@@ -59,6 +61,7 @@ pub enum BinOp {
     Add, Sub, Mul, Div, Mod,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ArrayComp {
     pub expr: Box<Expr>,           // expressão a incluir
@@ -68,6 +71,7 @@ pub struct ArrayComp {
     pub filter: Option<Box<Expr>>, // condicional
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct FindComp {
     pub select: Box<Expr>,         // o (<expr> & break) sem o marcador

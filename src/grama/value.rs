@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 /// Runtime values produced by evaluating expressions
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Number(f64),

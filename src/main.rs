@@ -90,10 +90,10 @@ fn main() {
             debug_mode = true;
         } else if arg == "--dry" {
             dry_run = true;
-        } else if arg.starts_with("--module=") {
-            module_value = Some(arg[9..].to_string()); // Skip "--module="
-        } else if arg.starts_with("--output=") {
-            output_file = Some(arg[9..].to_string()); // Skip "--output="
+        } else if let Some(stripped) = arg.strip_prefix("--module=") {
+            module_value = Some(stripped.to_string());
+        } else if let Some(stripped) = arg.strip_prefix("--output=") {
+            output_file = Some(stripped.to_string());
         } else if arg == "--help" || arg == "-h" {
             print_help();
             return;
