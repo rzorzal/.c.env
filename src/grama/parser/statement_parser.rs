@@ -22,6 +22,10 @@ pub(super) fn parse_statement(tokens: &[lexing::Token]) -> ParseResult<Stmt> {
     lexing::TokenType::LeftBrace(_) => {
       parse_block_statement(tokens)
     }
+    lexing::TokenType::Comment(text) => {
+      // Hash comments are preserved for .env output
+      Ok(Stmt::Comment(text.clone()))
+    }
     _ => {
       // Check if it's an assignment or public variable declaration: identifier followed by '='
       if tokens.len() >= 2 {

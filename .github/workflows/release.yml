@@ -68,16 +68,20 @@ jobs:
       - name: Package binary (Unix)
         if: matrix.platform.os != 'windows-latest'
         run: |
-          cd target/${{ matrix.platform.target }}/release
-          tar czf ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
-          cd ../../..
+          mkdir -p release-archive
+          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} release-archive/
+          cd release-archive
+          tar czf ../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
+          cd ..
+          ls -lh ${{ matrix.platform.name }}
 
       - name: Package binary (Windows)
         if: matrix.platform.os == 'windows-latest'
+        shell: pwsh
         run: |
-          cd target/${{ matrix.platform.target }}/release
-          7z a ../../../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
-          cd ../../..
+          New-Item -ItemType Directory -Force -Path release-archive
+          Copy-Item target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} release-archive/
+          Compress-Archive -Path release-archive/${{ matrix.platform.bin }} -DestinationPath ${{ matrix.platform.name }}
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -98,10 +102,16 @@ jobs:
         with:
           path: artifacts
 
+      - name: Prepare release files
+        run: |
+          mkdir -p release-files
+          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-files/ \;
+          ls -lh release-files/
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*
+          files: release-files/*
           generate_release_notes: true
           draft: false
           prerelease: false

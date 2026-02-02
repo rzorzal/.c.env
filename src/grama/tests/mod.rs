@@ -20,6 +20,9 @@ mod statements;
 mod assignments;
 
 #[cfg(test)]
+mod comment_tests;
+
+#[cfg(test)]
 mod blocks;
 
 #[cfg(test)]

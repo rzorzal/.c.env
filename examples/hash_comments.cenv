@@ -1,0 +1,31 @@
+# Hash Comments Example
+# This demonstrates the difference between # comments and // comments
+
+# Hash comments (#) are preserved in the .env output
+# They can be used to document configuration for deployment
+
+# Database Configuration
+DB_HOST = "localhost"
+DB_PORT = "5432"
+
+// Line comments (//) are only for the .cenv source code
+// They are NOT exported to the .env file
+// Use these for development notes and internal documentation
+
+DB_NAME = "myapp_db"
+
+/* Block comments are also development-only
+   They will not appear in the generated .env file
+   Perfect for multi-line internal notes */
+
+# API Configuration
+API_KEY = "your-api-key-here"
+API_ENDPOINT = "https://api.example.com"
+
+# Private variables are not exported regardless of comments
+// This password won't be in the .env file because it's marked private
+private INTERNAL_SECRET = "this-stays-internal"
+
+# Application Settings
+APP_ENV = "production"
+DEBUG = "false"

@@ -66,7 +66,7 @@ cenv --version
 - ✅ **Data Types** - Numbers, strings, booleans, null
 - ✅ **Template Strings** - String interpolation with `"text ${variable} text"`
 - ✅ **Operators** - Full set with correct precedence (including string concatenation)
-- ✅ **Comments** - Single-line (`//`) and multi-line (`/* */`)
+- ✅ **Comments** - Hash comments (`#`) for .env, line (`//`) and block (`/* */`) for code
 - ✅ **Error Handling** - Clear, helpful error messages
 
 ### Public vs Private Variables
@@ -364,10 +364,49 @@ counter = counter + 1  // counter is now 11
 
 ### Comments
 
-```javascript
-// Single-line comment
-/* Multi-line comment */
+C.env supports three types of comments with different behaviors:
+
+**Hash comments (`#`)** - Preserved in .env output:
+
+```cenv
+# Database Configuration
+DB_HOST = "localhost"
+# Use port 5432 for PostgreSQL
+DB_PORT = "5432"
 ```
+
+Generated `.env` file:
+
+```bash
+# Database Configuration
+DB_HOST=localhost
+# Use port 5432 for PostgreSQL
+DB_PORT=5432
+```
+
+**Line comments (`//`)** - Development only (NOT in .env):
+
+```cenv
+// This comment is for developers only
+// It will NOT appear in the generated .env file
+API_KEY = "your-key-here"
+```
+
+**Block comments (`/* */`)** - Development only (NOT in .env):
+
+```cenv
+/*
+  This multi-line comment is for internal documentation
+  It will NOT appear in the .env file
+*/
+SECRET = "secret-value"
+```
+
+**Use cases**:
+
+- Use `#` comments when you want documentation in the deployed .env file
+- Use `//` or `/* */` for internal development notes and explanations
+- See [`examples/hash_comments.cenv`](examples/hash_comments.cenv) for a complete example
 
 ## 🛠️ Building from Source
 

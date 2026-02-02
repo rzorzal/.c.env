@@ -89,8 +89,16 @@ pub struct Evaluator {
     env: Environment,
     output: Vec<String>,
     public_vars: HashMap<String, Value>, // Variables that appear in .env output (without 'private')
+    env_output_lines: Vec<EnvOutputLine>, // Ordered list of variables and comments for .env output
     base_path: PathBuf,
     imported_files: HashMap<String, ()>, // Track imported files to prevent circular imports
+}
+
+/// Represents a line in the .env output (either a variable or a comment)
+#[derive(Debug, Clone)]
+enum EnvOutputLine {
+    Variable(String), // Variable name (value looked up from public_vars)
+    Comment(String),  // Comment text (including the # prefix)
 }
 
 impl Evaluator {
@@ -108,6 +116,7 @@ impl Evaluator {
             env,
             output: Vec::new(),
             public_vars: HashMap::new(),
+            env_output_lines: Vec::new(),
             base_path: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
             imported_files: HashMap::new(),
         }
@@ -118,6 +127,7 @@ impl Evaluator {
             env: Environment::new(),
             output: Vec::new(),
             public_vars: HashMap::new(),
+            env_output_lines: Vec::new(),
             base_path,
             imported_files: HashMap::new(),
         }
@@ -136,12 +146,22 @@ impl Evaluator {
 
     /// Get public variables formatted as .env file content
     pub fn get_env_output(&self) -> Vec<String> {
-        let mut result: Vec<String> = self.public_vars
+        self.env_output_lines
             .iter()
-            .map(|(name, value)| format!("{}={}", name, self.format_env_value(value)))
-            .collect();
-        result.sort(); // Sort for consistent output
-        result
+            .map(|line| match line {
+                EnvOutputLine::Variable(name) => {
+                    // Look up the variable value from public_vars
+                    if let Some(value) = self.public_vars.get(name) {
+                        format!("{}={}", name, self.format_env_value(value))
+                    } else {
+                        // Variable was removed or doesn't exist, skip it
+                        String::new()
+                    }
+                }
+                EnvOutputLine::Comment(text) => text.clone(),
+            })
+            .filter(|line| !line.is_empty()) // Remove empty lines from removed variables
+            .collect()
     }
 
     /// Get public variables for testing
@@ -177,6 +197,7 @@ impl Evaluator {
                 // If not private, add to public_vars for .env output
                 if !private_ {
                     self.public_vars.insert(name.clone(), val);
+                    self.env_output_lines.push(EnvOutputLine::Variable(name.clone()));
                 }
                 Ok(())
             }
@@ -197,6 +218,11 @@ impl Evaluator {
                 for stmt in statements {
                     self.eval_statement(stmt)?;
                 }
+                Ok(())
+            }
+            Stmt::Comment(text) => {
+                // Comments are preserved in .env output
+                self.env_output_lines.push(EnvOutputLine::Comment(text.clone()));
                 Ok(())
             }
             Stmt::ExprStmt(expr) => {
@@ -575,6 +601,7 @@ impl Evaluator {
             env: Environment::new(),
             output: Vec::new(),
             public_vars: HashMap::new(),
+            env_output_lines: Vec::new(),
             base_path: self.base_path.clone(),
             imported_files: self.imported_files.clone(),
         };

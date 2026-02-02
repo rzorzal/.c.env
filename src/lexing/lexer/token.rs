@@ -74,4 +74,7 @@ pub enum Token{
 
     // EOL
     Eol(String),
+
+    // Comment (only # comments are preserved for .env output)
+    Comment(String),
 }

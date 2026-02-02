@@ -46,6 +46,20 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
     while start < chars.len() {
         let current_char: char = chars[start];
 
+        // Handle hash comments (# - preserved for .env output)
+        if current_char == '#' {
+            let comment_start = start;
+            let mut end = start + 1;
+            while end < chars.len() && chars[end] != '\n' {
+                end += 1;
+            }
+            // Create a Comment token with the full comment text including #
+            let comment_text: String = chars[comment_start..end].iter().collect();
+            tokens.push(Token::without_value(TokenType::Comment(comment_text), comment_start, end));
+            start = end;
+            continue;
+        }
+
         // Handle single-line comments (//)
         if current_char == '/' && start + 1 < chars.len() && chars[start + 1] == '/' {
             let mut end = start + 2;

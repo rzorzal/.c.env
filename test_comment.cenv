@@ -1,0 +1,11 @@
+# This is a database configuration
+DB_HOST = "localhost"
+DB_PORT = "5432"
+
+# User credentials
+DB_USER = "admin"
+// This comment should NOT appear in the .env file
+DB_PASS = "secret123"
+
+# Connection settings
+DB_TIMEOUT = "30"

@@ -9,6 +9,7 @@ pub enum Stmt {
     Assignment { target: Ident, value: Expr },
     Import { path: Expr, is_aws_secret: bool, alias: Option<Ident> },
     Block(Vec<Stmt>),
+    Comment(String), // Hash comments preserved for .env output
     ExprStmt(Expr),
 }
 
