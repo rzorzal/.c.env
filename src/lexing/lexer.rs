@@ -411,6 +411,16 @@ pub fn analyze_code(code: &str) -> Vec<Token> {
         }
 
         if current_char == '?' {
+            // Check for ?. (optional chaining)
+            if start + 1 < chars.len() && chars[start + 1] == '.' {
+                tokens.push(Token::without_value(
+                    TokenType::QuestionDot("?.".to_string()),
+                    start,
+                    start + 2,
+                ));
+                start += 2;
+                continue;
+            }
             tokens.push(Token::without_value(
                 TokenType::QuestionMark("?".to_string()),
                 start,

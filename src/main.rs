@@ -4,6 +4,7 @@ mod lexing;
 use std::env;
 use std::fs;
 use std::io::Write;
+use std::path::Path;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -144,7 +145,13 @@ fn main() {
         println!("Executing program...\n");
     }
 
-    let mut evaluator = grama::Evaluator::with_module(module_value.clone());
+    // Determine the base path for imports (directory of the input file)
+    let base_path = Path::new(filename)
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+
+    let mut evaluator = grama::Evaluator::with_module_and_base_path(module_value.clone(), base_path);
     match evaluator.eval_program(&program) {
         Ok(outputs) => {
             // In dry run mode, output everything to stdout

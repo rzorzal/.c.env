@@ -1,7 +1,7 @@
 // Main configuration file - compiles to .env based on module
 
 // Import environment-specific config
-import("examples/.cenv." + module)
+private env_config = import("./.cenv." + module)
 
 // Private variables for internal calculations
 private max_pool_size = 20
@@ -14,6 +14,13 @@ PORT = 3000
 
 // Calculated public variable using private variable
 DATABASE_POOL_SIZE = max_pool_size
+
+// Import and re-export environment-specific variables
+API_URL = env_config.API_URL
+DATABASE_URL = env_config.DATABASE_URL
+DEBUG_MODE = env_config.DEBUG_MODE
+LOG_LEVEL = env_config.LOG_LEVEL
+API_KEY = "example-api-key-123"  // Example API key
 
 // Environment info (using imported variable)
 ENVIRONMENT = module

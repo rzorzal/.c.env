@@ -146,6 +146,22 @@ impl Evaluator {
         }
     }
 
+    /// Create a new evaluator with a custom module value and base path
+    pub fn with_module_and_base_path(module_value: Option<String>, base_path: PathBuf) -> Self {
+        let mut env = Environment::new();
+        if let Some(module_val) = module_value {
+            env.define("module".to_string(), Value::String(module_val));
+        }
+        Self {
+            env,
+            output: Vec::new(),
+            public_vars: HashMap::new(),
+            env_output_lines: Vec::new(),
+            base_path,
+            imported_files: HashMap::new(),
+        }
+    }
+
     /// Execute a program and return the output
     pub fn eval_program(&mut self, program: &Program) -> EvalResult<Vec<String>> {
         self.output.clear();
@@ -301,6 +317,15 @@ impl Evaluator {
                 }
             }
 
+            Expr::OptionalMember { object, field } => {
+                let obj_val = self.eval_expr(object)?;
+                match obj_val {
+                    Value::Object(map) => Ok(map.get(field).cloned().unwrap_or(Value::Null)),
+                    Value::Null => Ok(Value::Null),
+                    _ => Ok(Value::Null),
+                }
+            }
+
             Expr::Unary { op, rhs } => {
                 let val = self.eval_expr(rhs)?;
                 self.eval_unary(*op, val)
@@ -348,6 +373,7 @@ impl Evaluator {
             "str" => self.builtin_str(args),
             "num" => self.builtin_num(args),
             "bool" => self.builtin_bool(args),
+            "has_key" => self.builtin_has_key(args),
             "import" => self.builtin_import(args, false),
             "import_aws_secret" => self.builtin_import(args, true),
             _ => Err(RuntimeError::unknown_function(name)),
@@ -437,6 +463,31 @@ impl Evaluator {
 
         let val = self.eval_expr(&args[0])?;
         Ok(Value::Bool(val.is_truthy()))
+    }
+
+    fn builtin_has_key(&mut self, args: &[Expr]) -> EvalResult<Value> {
+        if args.len() != 2 {
+            return Err(RuntimeError::wrong_arg_count("has_key", 2, args.len()));
+        }
+
+        let obj_val = self.eval_expr(&args[0])?;
+        let key_val = self.eval_expr(&args[1])?;
+
+        match (obj_val, key_val) {
+            (Value::Object(map), Value::String(key)) => {
+                Ok(Value::Bool(map.contains_key(&key)))
+            }
+            (Value::Object(_), other) => Err(RuntimeError::type_error(
+                "string",
+                other.type_name(),
+                "has_key(object, key)",
+            )),
+            (other, _) => Err(RuntimeError::type_error(
+                "object",
+                other.type_name(),
+                "has_key(object, key)",
+            )),
+        }
     }
 
     fn builtin_import(&mut self, args: &[Expr], is_aws_secret: bool) -> EvalResult<Value> {
@@ -644,9 +695,17 @@ impl Evaluator {
             self.base_path = parent.to_path_buf();
         }
 
+        // Create a new environment for the imported file, preserving the 'module' variable
+        let mut import_env = Environment::new();
+
+        // Copy the 'module' variable from parent environment if it exists
+        if let Ok(module_val) = self.env.get("module") {
+            import_env.define("module".to_string(), module_val.clone());
+        }
+
         // Create a new evaluator for the imported file to isolate its execution
         let mut import_evaluator = Evaluator {
-            env: Environment::new(),
+            env: import_env,
             output: Vec::new(),
             public_vars: HashMap::new(),
             env_output_lines: Vec::new(),

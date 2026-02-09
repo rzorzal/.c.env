@@ -95,6 +95,21 @@ pub(super) fn parse_primary_expression_with_count(
                 )); // Consumed: identifier, dot, property
             }
 
+            // Check if this is an optional property access using ?. notation
+            if tokens.len() > 2
+                && matches!(&tokens[1].token_type, lexing::TokenType::QuestionDot(_))
+                && let lexing::TokenType::Identifier(prop_name) = &tokens[2].token_type
+            {
+                let object = Expr::Ident(value.clone());
+                return Ok((
+                    Expr::OptionalMember {
+                        object: Box::new(object),
+                        field: prop_name.clone(),
+                    },
+                    3,
+                )); // Consumed: identifier, ?., property
+            }
+
             // Regular identifier - consumes 1 token
             Ok((Expr::Ident(value.clone()), 1))
         }

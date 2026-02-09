@@ -14,6 +14,8 @@ Complete reference for all built-in functions in C.env.
    - [type()](#type)
 4. [String Operations](#string-operations)
    - [len()](#len)
+5. [Object Operations](#object-operations)
+   - [has_key()](#has_key)
 
 ---
 
@@ -457,6 +459,93 @@ private message = name + " is " + str(age) + " years old"
 print(message)                     // Output: Alice is 30 years old
 ```
 
+---
+
+## Object Operations
+
+### has_key()
+
+Check if an object has a specific key.
+
+**Note:** Object literals `{ key: value }` are not yet implemented in the parser. This function will be most useful once object literals are added, or when working with objects from imported files.
+
+**Syntax:**
+
+```javascript
+has_key(object, key);
+```
+
+**Parameters:**
+
+- `object`: The object to check
+- `key`: The key name to look for (must be a string)
+
+**Returns:** Boolean (`true` if the key exists in the object, `false` otherwise)
+
+**Examples:**
+
+```javascript
+// Create an object
+private user = {
+  name: "Alice",
+  age: 30,
+  email: "alice@example.com"
+}
+
+// Check for existing keys
+print(has_key(user, "name"))       // Output: true
+print(has_key(user, "age"))        // Output: true
+
+// Check for non-existing keys
+print(has_key(user, "phone"))      // Output: false
+print(has_key(user, "address"))    // Output: false
+
+// Use in conditional logic
+private config = { debug: true, port: 8080 }
+
+if has_key(config, "port") {
+  print("Port is configured")
+}
+
+// Check before accessing
+private settings = { theme: "dark" }
+if has_key(settings, "language") {
+  print("Language:", settings.language)
+} else {
+  print("No language setting found")
+}
+
+// Empty object
+private empty = {}
+print(has_key(empty, "anything"))  // Output: false
+```
+
+**Error Cases:**
+
+```javascript
+// Non-object first argument
+has_key("not an object", "key")    // Runtime Error: Expected object
+
+// Non-string key
+private obj = { name: "Test" }
+has_key(obj, 123)                  // Runtime Error: Expected string key
+
+// Wrong number of arguments
+has_key(obj)                       // Runtime Error: Expected 2 arguments
+has_key()                          // Runtime Error: Expected 2 arguments
+```
+
+**Notes:**
+
+- Only works with objects, not arrays or other types
+- The key parameter must be a string
+- Returns `false` for empty objects
+- Use in combination with `?.` operator for safe property access
+
+---
+
+## Combined Examples
+
 ### Conditional Logic with Type Conversion
 
 ```javascript
@@ -464,6 +553,22 @@ private countStr = "0"
 private count = num(countStr)
 private hasItems = bool(count)
 print("Has items:", hasItems)      // Output: Has items: false
+```
+
+### Safe Object Access
+
+```javascript
+private config = { api_url: "https://api.example.com" }
+
+// Check before accessing
+if has_key(config, "api_url") {
+  API_URL = config.api_url
+} else {
+  API_URL = "https://default.example.com"
+}
+
+// Or use optional chaining
+API_KEY = config?.api_key          // Returns null if not present
 ```
 
 ### Debugging and Introspection
@@ -481,5 +586,5 @@ print("As bool:", bool(value))
 ## See Also
 
 - [Expressions](expressions.md) - Expression syntax and evaluation
-- [Operators](operators.md) - Operator reference
+- [Operators](operators.md) - Operator reference and optional chaining (`?.`)
 - [Data Types](types.md) - Type system overview

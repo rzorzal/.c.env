@@ -352,6 +352,36 @@ This command:
 
 ---
 
+## 🆕 New Features
+
+### has_key() and Optional Chaining (?.)
+
+The language now supports safe object property access:
+
+**Features:**
+
+- `has_key(object, key)` - Check if an object has a specific key
+- `?.` operator - Safe property access that returns null instead of errors
+
+**Note:** Object literals `{ key: value }` are not yet implemented in the parser. These features are fully functional and will be most useful once object literals are added, or when working with objects from imported files.
+
+**Example (will work once object literals are implemented):**
+
+```javascript
+private config = { api_url: "https://api.example.com" }
+
+// Check if key exists
+if has_key(config, "api_url") {
+  API_URL = config.api_url
+}
+
+// Safe access - returns null if missing
+API_KEY = config?.api_key  // null, no error
+DEBUG = config?.debug ?? false  // Use default if null
+```
+
+---
+
 ## 🚀 Next Steps
 
 1. Try modifying the examples

@@ -29,4 +29,10 @@ mod blocks;
 mod imports;
 
 #[cfg(test)]
+mod has_key_tests;
+
+#[cfg(test)]
+mod optional_member_tests;
+
+#[cfg(test)]
 mod evaluator_tests;

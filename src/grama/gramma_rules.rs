@@ -50,6 +50,10 @@ pub enum Expr {
         object: Box<Expr>,
         field: Ident,
     },
+    OptionalMember {
+        object: Box<Expr>,
+        field: Ident,
+    },
 
     // Unários e binários
     Unary {

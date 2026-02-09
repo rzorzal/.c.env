@@ -12,7 +12,12 @@ print(API_KEY)
 
 # AWS secrets also return objects
 private secrets = import_aws_secret("my-app/database-credentials")
-DB_PASSWORD = secrets.DB_PASSWORD
+
+# Use optional chaining to safely access fields that might not exist
+# The ?. operator returns null if the field doesn't exist (instead of throwing an error)
+private db_pass = secrets?.DB_PASSWORD
+
+print("DB_PASSWORD from AWS:", db_pass)
 
 # This would throw an error (import must be assigned):
 # import("some_file.cenv")  # ERROR: import() must be assigned to a variable

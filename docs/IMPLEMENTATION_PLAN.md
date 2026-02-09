@@ -150,25 +150,22 @@ C.env compiles `.cenv` source files into `.env` files for different environments
 
 **Use Case Example:**
 
-```bash
 # Compile for production
+
 ./c_env_lang config.cenv --module=production
+
 # Loads .cenv.production via import('./.cenv.' + module)
 
 # Compile for staging
+
 ./c_env_lang config.cenv --module=staging
+
 # Loads .cenv.staging
+
 ```
-
-**Test Results:** 88 tests passing (68 from Phases 1-2.2 + 20 new for Phase 2.3)
-
-#### 2.4 Block Statements ✅ COMPLETED
 
 - [x] Add `Stmt::Block(Vec<Stmt>)` to AST
 - [x] Implement brace-delimited statement blocks
-- [x] Handle empty blocks
-- [x] Handle nested blocks with proper brace matching
-- [x] Add tests for nested blocks
 - [x] Blocks share the same scope (no new scope created)
 - [x] Updated parser to handle braces correctly (don't split on newlines inside braces)
 - [x] Added 15 comprehensive tests for block statements
@@ -257,10 +254,17 @@ Note: 7 pre-existing assignment tests failing (not related to block implementati
 
 #### 4.2 Traditional Loop Statements
 
-- [ ] Add `Stmt::WhileLoop { cond: Expr, body: Stmt }` to AST (future)
-- [ ] Add `Stmt::ForLoop` variant (if needed beyond comprehensions)
-- [ ] Document that comprehensions are preferred
 
+#### 4.3 Loop and Range Support
+
+- [ ] Implement `range` built-in function (see docs/LOOP_RANGE_IMPLEMENTATION_PLAN.md for details)
+- [ ] Implement `for ... in` and `for ... of` loop syntax
+- [ ] Add support for variable interpolation in assignment targets within loops
+- [ ] Add list comprehensions with optional `if` filters
+- [ ] Add tests and error handling as described in the detailed plan
+- [ ] Document new features in language reference
+
+> See: [docs/LOOP_RANGE_IMPLEMENTATION_PLAN.md](LOOP_RANGE_IMPLEMENTATION_PLAN.md) for full implementation steps, notes, and open questions.
 #### 4.3 Function Declarations
 
 - [ ] Add `Stmt::FunctionDecl { name: Ident, params: Vec<Ident>, body: Stmt }` to AST
@@ -410,3 +414,4 @@ Note: 7 pre-existing assignment tests failing (not related to block implementati
 - Can accelerate by parallelizing work or reduce scope by skipping Phase 6
 
 **Last Updated:** 2026-01-29
+```

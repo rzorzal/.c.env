@@ -42,6 +42,7 @@ pub enum Token {
     RightBracket(String), // ]
     Comma(String),        // ,
     Dot(String),          // .
+    QuestionDot(String),  // ?.
     Dollar(String),       // $
     Backtick(String),     // Backtick for template literals ``
     Quote(String),        // Single quote

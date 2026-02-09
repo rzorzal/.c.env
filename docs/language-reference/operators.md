@@ -279,6 +279,130 @@ Currently, C.env does not perform automatic type coercion. All operands must be 
 
 **Note:** Short-circuit evaluation for logical operators (`&`, `|`) is not yet implemented. Currently, both operands are always evaluated.
 
+---
+
+## Member Access Operators
+
+### Dot Operator `.`
+
+Access a property of an object.
+
+```javascript
+private user = { name: "Alice", age: 30 }
+private userName = user.name     // "Alice"
+private userAge = user.age       // 30
+```
+
+**Behavior:**
+
+- Returns the value of the property if it exists
+- Throws a runtime error if the property doesn't exist
+- Throws a runtime error if used on non-object types
+
+**Examples:**
+
+```javascript
+private config = { host: "localhost", port: 8080 }
+
+// Valid access
+HOST = config.host               // "localhost"
+PORT = config.port               // 8080
+
+// Error cases
+private missing = config.timeout // Runtime Error: Object has no field 'timeout'
+private notObj = "string"
+private err = notObj.length      // Runtime Error: Cannot access field on string
+```
+
+### Optional Chaining `?.`
+
+Safely access a property of an object, returning `null` instead of throwing an error.
+
+**Note:** The examples below use object literal syntax `{ key: value }` which is not yet implemented. The `?.` operator is fully functional and will work with object literals once they are added to the parser.
+
+```javascript
+// Example syntax (will work with object literals):
+private user = { name: "Bob" }
+private userName = user?.name      // "Bob"
+private userEmail = user?.email    // null (no error!)
+```
+
+**Behavior:**
+
+- Returns the value of the property if it exists
+- Returns `null` if the property doesn't exist
+- Returns `null` if used on non-object types
+- Returns `null` if used on `null` values
+
+**Examples:**
+
+```javascript
+private config = { api_url: "https://api.example.com" }
+
+// Property exists
+API_URL = config?.api_url        // "https://api.example.com"
+
+// Property doesn't exist - returns null instead of error
+API_KEY = config?.api_key        // null
+
+// Safe on null values
+private nullable = null
+private safe = nullable?.property // null
+
+// Safe on non-objects
+private str = "test"
+private result = str?.length      // null (not an error)
+
+// Use with default values
+API_TIMEOUT = config?.timeout ?? 30  // 30 (if timeout not set)
+```
+
+**Comparison: `.` vs `?.`**
+
+```javascript
+private data = { status: "ok" }
+
+// Regular dot - errors on missing properties
+private a = data.status          // "ok"
+private b = data.missing         // Runtime Error!
+
+// Optional chaining - returns null on missing properties
+private c = data?.status         // "ok"
+private d = data?.missing        // null (no error)
+```
+
+**Use Cases:**
+
+```javascript
+// 1. Safe API response handling
+private response = fetchData()
+private userId = response?.data?.user?.id ?? "unknown"
+
+// 2. Optional configuration
+private debugMode = config?.debug ?? false
+private port = config?.server?.port ?? 3000
+
+// 3. Conditional exports based on presence
+if (config?.feature_flag) {
+  FEATURE_ENABLED = config.feature_flag
+}
+
+// 4. Check with has_key for certainty
+if (has_key(config, "api_key")) {
+  API_KEY = config.api_key        // Safe: we know it exists
+} else {
+  API_KEY = config?.default_key   // Safe fallback
+}
+```
+
+**Notes:**
+
+- `?.` is particularly useful when working with imported configurations
+- Combine with `has_key()` function for explicit existence checks
+- Use `?? ` (nullish coalescing, if available) or conditional logic for defaults
+
+---
+
 ## Common Pitfalls
 
 ### 1. Precedence Confusion

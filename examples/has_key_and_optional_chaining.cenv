@@ -1,0 +1,10 @@
+# Example: Using has_key() and Optional Chaining (?.)
+# Note: This example demonstrates the syntax once object literals are implemented
+
+# TODO: Update this example once object literal parsing is complete
+# Currently, object literals ({ key: value }) are not yet implemented in the parser
+
+# For now, has_key() and ?. can be used with imported objects:
+private configObj = import("./config.cenv")
+// if has_key(imported_obj, "key") { ... }
+// MY_EXPORT_ENV = configObj?.property
