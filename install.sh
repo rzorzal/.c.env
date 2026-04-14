@@ -8,11 +8,9 @@ set -e
 REPO="rzorzal/.c.env"
 BINARY="cenv"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
+SHELL_CONFIG=""   # set by add_to_path, used in the final message
 
-# Tracks which config file was modified so we can tell the user what to source
-SHELL_CONFIG=""
-
-# ── colors ───────────────────────────────────────────────────────────────────
+# ── colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -29,7 +27,7 @@ error() { printf "\n${RED}error: %s${NC}\n" "$*" >&2; exit 1; }
 detect_os() {
     case "$(uname -s)" in
         Linux*)  echo "Linux" ;;
-        Darwin*) echo "Darwin" ;;
+        Darwin*) echo "macOS" ;;
         *) error "Unsupported OS: $(uname -s). Install manually: https://github.com/${REPO}/releases" ;;
     esac
 }
@@ -54,12 +52,22 @@ check_downloader() {
     fi
 }
 
+# ── fetch text from a URL ─────────────────────────────────────────────────────
+fetch() {
+    url="$1"
+    downloader="$2"
+    if [ "$downloader" = "curl" ]; then
+        curl -fsSL "$url"
+    else
+        wget -qO- "$url"
+    fi
+}
+
 # ── download a URL to a file ──────────────────────────────────────────────────
 download() {
     url="$1"
     dest="$2"
     downloader="$3"
-
     if [ "$downloader" = "curl" ]; then
         curl -fsSL "$url" -o "$dest"
     else
@@ -67,24 +75,23 @@ download() {
     fi
 }
 
-# ── fetch latest release tag from GitHub API ─────────────────────────────────
-latest_version() {
-    downloader="$1"
-    api_url="https://api.github.com/repos/${REPO}/releases/latest"
+# ── find the download URL for the right asset in a release JSON ──────────────
+# Searches browser_download_url lines for entries matching both OS and arch keywords.
+# This is resilient to naming changes (e.g. extra version suffixes like ".1.").
+find_asset_url() {
+    release_json="$1"
+    os_keyword="$2"    # e.g. "macOS" or "Linux" or "amd64"
+    arch_keyword="$3"  # e.g. "x86_64" or "aarch64" or "arm64"
 
-    if [ "$downloader" = "curl" ]; then
-        curl -fsSL "$api_url" \
-            | grep '"tag_name"' \
-            | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/'
-    else
-        wget -qO- "$api_url" \
-            | grep '"tag_name"' \
-            | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/'
-    fi
+    echo "$release_json" \
+        | grep '"browser_download_url"' \
+        | grep "$os_keyword" \
+        | grep "$arch_keyword" \
+        | sed -E 's/.*"browser_download_url": *"([^"]+)".*/\1/' \
+        | head -1
 }
 
 # ── resolve the user's shell config file ─────────────────────────────────────
-# Uses $SHELL (inherited from the parent terminal, even inside curl | sh)
 resolve_shell_config() {
     case "$SHELL" in
         */zsh)
@@ -109,15 +116,13 @@ resolve_shell_config() {
 # ── write PATH export to shell config ────────────────────────────────────────
 add_to_path() {
     config=$(resolve_shell_config)
-    SHELL_CONFIG="$config"   # store for use in the final message
+    SHELL_CONFIG="$config"
 
-    # Already present — nothing to do
     if grep -q "$INSTALL_DIR" "$config" 2>/dev/null; then
         info "PATH already configured in $config"
         return
     fi
 
-    # fish uses a different command
     if echo "$SHELL" | grep -q fish; then
         printf '\n# cenv\nfish_add_path "%s"\n' "$INSTALL_DIR" >> "$config"
     else
@@ -132,66 +137,104 @@ main() {
     printf "\n${BOLD}cenv installer${NC}\n"
     printf "================\n"
 
-    # ── system detection ──
+    # ── system detection ──────────────────────────────────────────────────────
     step "Detecting system..."
     OS=$(detect_os)
     ARCH=$(detect_arch)
     DOWNLOADER=$(check_downloader)
     info "OS: $OS, Arch: $ARCH, Downloader: $DOWNLOADER"
 
-    # ── version resolution ──
-    step "Resolving version..."
+    # ── resolve release info ──────────────────────────────────────────────────
+    step "Fetching release info..."
+
     if [ -n "$CENV_VERSION" ]; then
-        VERSION="$CENV_VERSION"
-        info "Using requested version: $VERSION"
+        RELEASE_URL="https://api.github.com/repos/${REPO}/releases/tags/${CENV_VERSION}"
     else
-        VERSION=$(latest_version "$DOWNLOADER")
-        [ -n "$VERSION" ] || error "Could not fetch latest version from GitHub.\nSet CENV_VERSION=vX.Y.Z to install a specific version."
-        info "Latest release: $VERSION"
+        RELEASE_URL="https://api.github.com/repos/${REPO}/releases/latest"
     fi
 
-    # ── download ──
-    ASSET="${BINARY}-${OS}-${ARCH}.tar.gz"
-    URL="https://github.com/${REPO}/releases/download/${VERSION}/${ASSET}"
+    RELEASE_JSON=$(fetch "$RELEASE_URL" "$DOWNLOADER") \
+        || error "Could not reach GitHub API. Check your internet connection."
 
+    VERSION=$(echo "$RELEASE_JSON" | grep '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    [ -n "$VERSION" ] || error "Could not determine release version."
+    info "Version: $VERSION"
+
+    # ── find the right asset URL ──────────────────────────────────────────────
+    step "Resolving download URL..."
+
+    if [ "$OS" = "macOS" ]; then
+        ASSET_URL=$(find_asset_url "$RELEASE_JSON" "macOS" "$ARCH")
+        ASSET_TYPE="zip"
+    elif [ "$OS" = "Linux" ]; then
+        # Linux releases are .deb packages; arch keyword differs between deb naming
+        if [ "$ARCH" = "x86_64" ]; then
+            ASSET_URL=$(find_asset_url "$RELEASE_JSON" ".deb" "amd64")
+        else
+            ASSET_URL=$(find_asset_url "$RELEASE_JSON" ".deb" "arm64")
+        fi
+        ASSET_TYPE="deb"
+    fi
+
+    [ -n "$ASSET_URL" ] || error "No matching release asset found for $OS/$ARCH.\nAvailable assets: https://github.com/${REPO}/releases/tag/${VERSION}"
+    info "$ASSET_URL"
+
+    # ── download ──────────────────────────────────────────────────────────────
     step "Downloading..."
-    info "$URL"
-
     TMP_DIR=$(mktemp -d)
     trap 'rm -rf "$TMP_DIR"' EXIT
 
-    download "$URL" "$TMP_DIR/$ASSET" "$DOWNLOADER" \
-        || error "Download failed.\nCheck that the release exists: https://github.com/${REPO}/releases"
+    ASSET_FILE="$TMP_DIR/cenv-download"
+    download "$ASSET_URL" "$ASSET_FILE" "$DOWNLOADER" \
+        || error "Download failed. Check the release page: https://github.com/${REPO}/releases"
+    info "Download complete"
 
-    # ── extract & install ──
+    # ── extract & install ─────────────────────────────────────────────────────
     step "Installing..."
-    tar -xzf "$TMP_DIR/$ASSET" -C "$TMP_DIR" \
-        || error "Failed to extract $ASSET"
 
-    BIN_PATH=$(find "$TMP_DIR" -type f -name "$BINARY" | head -1)
-    [ -n "$BIN_PATH" ] || error "Binary '$BINARY' not found in archive"
+    if [ "$ASSET_TYPE" = "zip" ]; then
+        # macOS — extract zip, find the binary
+        command -v unzip > /dev/null 2>&1 || error "'unzip' is required but not installed. Run: brew install unzip"
+        unzip -q "$ASSET_FILE" -d "$TMP_DIR/extracted"
+        BIN_PATH=$(find "$TMP_DIR/extracted" -type f -name "$BINARY" | head -1)
+        [ -n "$BIN_PATH" ] || error "Binary '$BINARY' not found inside the archive."
 
-    mkdir -p "$INSTALL_DIR"
-    cp "$BIN_PATH" "$INSTALL_DIR/$BINARY"
-    chmod +x "$INSTALL_DIR/$BINARY"
-    info "Installed to $INSTALL_DIR/$BINARY"
+        mkdir -p "$INSTALL_DIR"
+        cp "$BIN_PATH" "$INSTALL_DIR/$BINARY"
+        chmod +x "$INSTALL_DIR/$BINARY"
+        info "Installed to $INSTALL_DIR/$BINARY"
 
-    # ── PATH setup ──
+    elif [ "$ASSET_TYPE" = "deb" ]; then
+        # Linux — install the .deb package (requires sudo)
+        DEB_FILE="$TMP_DIR/cenv.deb"
+        mv "$ASSET_FILE" "$DEB_FILE"
+
+        if command -v dpkg > /dev/null 2>&1; then
+            sudo dpkg -i "$DEB_FILE" || sudo apt-get install -f -y
+            info "Installed via dpkg"
+            # dpkg installs to /usr/bin — adjust INSTALL_DIR so PATH check is correct
+            INSTALL_DIR="/usr/bin"
+        else
+            error "dpkg not found. This installer uses .deb packages on Linux.\nFor manual installation, download the package from:\n  https://github.com/${REPO}/releases/tag/${VERSION}"
+        fi
+    fi
+
+    # ── PATH setup ────────────────────────────────────────────────────────────
     step "Configuring PATH..."
     if echo "$PATH" | grep -q "$INSTALL_DIR"; then
-        info "$INSTALL_DIR is already in PATH — nothing to do"
+        info "$INSTALL_DIR is already in PATH"
         SHELL_CONFIG=""
     else
         add_to_path
     fi
 
-    # Apply to the current process so the verify step below can find the binary
+    # Apply to the current process so the verify step can find the binary
     export PATH="$PATH:$INSTALL_DIR"
 
-    # ── verify ──
+    # ── verify ────────────────────────────────────────────────────────────────
     step "Verifying..."
     if "$INSTALL_DIR/$BINARY" --version > /dev/null 2>&1; then
-        VERSION_STR=$("$INSTALL_DIR/$BINARY" --version 2>/dev/null)
+        VERSION_STR=$("$INSTALL_DIR/$BINARY" --version)
         info "OK — $VERSION_STR"
     else
         error "Installed binary did not run. Please report this at https://github.com/${REPO}/issues"

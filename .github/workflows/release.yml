@@ -1,118 +1,346 @@
 name: Release
 
+# Triggered two ways:
+#   1. Manual: Actions → Release → "Run workflow" → pick bump type (patch/minor/major)
+#   2. Automatic: push a tag  →  git tag v0.1.5 && git push origin v0.1.5
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Which part of the version to increment"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch    # 0.1.4 → 0.1.5  (bug fixes)
+          - minor    # 0.1.4 → 0.2.0  (new features)
+          - major    # 0.1.4 → 1.0.0  (breaking changes)
+      release_notes:
+        description: "Summary for this release (optional, shown at top of GitHub Release)"
+        required: false
+        default: ""
+        type: string
   push:
     tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+      - "v*.*.*"
 
 permissions:
   contents: write
 
 jobs:
-  release:
-    name: Release - ${{ matrix.platform.os_name }}
+  # ── Step 1 (manual only): bump version, update changelog, commit, tag ─────
+  #
+  # Skipped when triggered by a tag push — in that case the tag already
+  # exists and the repo is assumed to be ready.
+  prepare:
+    name: Bump version & changelog
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # full history needed for git log
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── compute new version ───────────────────────────────────────────────
+      - name: Bump version
+        id: bump
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          python3 - <<'EOF'
+          import re, os
+
+          cargo = open('Cargo.toml').read()
+          m = re.search(r'^version = "(\d+)\.(\d+)\.(\d+)"', cargo, re.MULTILINE)
+          major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+          bump = os.environ['BUMP']
+          if bump == 'major':
+              major += 1; minor = 0; patch = 0
+          elif bump == 'minor':
+              minor += 1; patch = 0
+          else:
+              patch += 1
+
+          new_version = f"{major}.{minor}.{patch}"
+          print(f"Bumping {bump}: {m.group(1)}.{m.group(2)}.{m.group(3)} → {new_version}")
+
+          # Write to GITHUB_OUTPUT
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"new_version={new_version}\n")
+
+          # Update Cargo.toml
+          updated = re.sub(
+              r'^version = "[^"]+"',
+              f'version = "{new_version}"',
+              cargo,
+              flags=re.MULTILINE
+          )
+          open('Cargo.toml', 'w').write(updated)
+
+          # Update Cargo.lock (only the c_env_lang package entry)
+          lock = open('Cargo.lock').read()
+          lock = re.sub(
+              r'(name = "c_env_lang"\nversion = ")[^"]+"',
+              rf'\g<1>{new_version}"',
+              lock
+          )
+          open('Cargo.lock', 'w').write(lock)
+          EOF
+
+      # ── generate CHANGES.md entry from commits since last tag ─────────────
+      - name: Update CHANGES.md
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          python3 - <<'EOF'
+          import re, subprocess, datetime, os
+
+          new_version = os.environ['NEW_VERSION']
+          today = datetime.date.today().strftime('%Y-%m-%d')
+
+          # Commits since the last tag (or all commits if no tag exists yet)
+          try:
+              last_tag = subprocess.check_output(
+                  ['git', 'describe', '--tags', '--abbrev=0'],
+                  stderr=subprocess.DEVNULL
+              ).decode().strip()
+              commit_range = f"{last_tag}..HEAD"
+          except subprocess.CalledProcessError:
+              commit_range = "HEAD"
+              last_tag = ""
+
+          raw = subprocess.check_output(
+              ['git', 'log', commit_range, '--pretty=format:%s', '--no-merges']
+          ).decode().strip().splitlines()
+
+          # Prefixes that are internal noise — skip them in the changelog
+          skip = ('chore:', 'ci:', 'style:', 'test:', 'docs:', '[skip ci]', 'bump version')
+
+          added, fixed, changed = [], [], []
+          for msg in raw:
+              if not msg.strip() or any(msg.lower().startswith(p) for p in skip):
+                  continue
+              if re.match(r'^feat(?:ure)?[\s:(]', msg, re.I):
+                  cleaned = re.sub(r'^feat(?:ure)?[:\s]+', '', msg, flags=re.I).strip()
+                  added.append(f"- {cleaned}")
+              elif re.match(r'^fix[\s:(]', msg, re.I):
+                  cleaned = re.sub(r'^fix[:\s]+', '', msg, flags=re.I).strip()
+                  fixed.append(f"- {cleaned}")
+              else:
+                  changed.append(f"- {msg.strip()}")
+
+          # Build the new section
+          section = f"## [{new_version}] - {today}\n"
+          if added:
+              section += "\n### Added\n" + "\n".join(added) + "\n"
+          if fixed:
+              section += "\n### Fixed\n" + "\n".join(fixed) + "\n"
+          if changed:
+              section += "\n### Changed\n" + "\n".join(changed) + "\n"
+          if not (added or fixed or changed):
+              section += "\n### Changed\n- Minor improvements\n"
+
+          # Insert before the first existing version entry (## [X.Y.Z])
+          path = 'CHANGES.md'
+          content = open(path).read() if os.path.exists(path) else "# Changelog\n"
+          idx = content.find('\n## [')
+          if idx == -1:
+              new_content = content.rstrip('\n') + '\n\n' + section.strip() + '\n'
+          else:
+              new_content = content[:idx + 1] + '\n' + section.strip() + '\n' + content[idx + 1:]
+
+          open(path, 'w').write(new_content)
+          print(f"CHANGES.md updated for v{new_version}")
+          EOF
+
+      # ── commit everything and push the tag ────────────────────────────────
+      - name: Commit & push tag
+        env:
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Cargo.toml Cargo.lock CHANGES.md
+          git commit -m "chore: release v${NEW_VERSION} [skip ci]"
+          git tag "v${NEW_VERSION}"
+          git push origin HEAD:main
+          git push origin "v${NEW_VERSION}"
+
+  # ── Step 2: build binaries for every platform ─────────────────────────────
+  build:
+    name: Build — ${{ matrix.artifact }}
+    needs: [prepare]
+    # Run when prepare succeeded (manual dispatch) OR was skipped (tag push)
+    if: always() && (needs.prepare.result == 'success' || needs.prepare.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
-        platform:
-          - os_name: Linux-x86_64
-            os: ubuntu-20.04
+        include:
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            bin: cenv
-            name: cenv-Linux-x86_64.tar.gz
+            artifact: cenv-Linux-x86_64
+            deb_arch: amd64
+            cross: false
 
-          - os_name: Linux-aarch64
-            os: ubuntu-20.04
+          - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            bin: cenv
-            name: cenv-Linux-aarch64.tar.gz
+            artifact: cenv-Linux-aarch64
+            deb_arch: arm64
+            cross: true
 
-          - os_name: macOS-x86_64
-            os: macOS-latest
+          - os: macos-13          # Intel runner
             target: x86_64-apple-darwin
-            bin: cenv
-            name: cenv-Darwin-x86_64.tar.gz
+            artifact: cenv-macOS-x86_64
+            cross: false
 
-          - os_name: macOS-aarch64
-            os: macOS-latest
+          - os: macos-latest      # Apple Silicon runner
             target: aarch64-apple-darwin
-            bin: cenv
-            name: cenv-Darwin-aarch64.tar.gz
+            artifact: cenv-macOS-aarch64
+            cross: false
 
-          - os_name: Windows-x86_64
-            os: windows-latest
+          - os: windows-latest
             target: x86_64-pc-windows-msvc
-            bin: cenv.exe
-            name: cenv-Windows-x86_64.zip
+            artifact: cenv-Windows-x86_64
+            cross: false
 
-    runs-on: ${{ matrix.platform.os }}
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          # Manual dispatch → check out the tag that prepare just pushed.
+          # Tag push        → check out the pushed tag.
+          ref: >-
+            ${{ github.event_name == 'workflow_dispatch'
+              && format('refs/tags/v{0}', needs.prepare.outputs.new_version)
+              || github.ref }}
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform.target }}
+          targets: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools
-        if: matrix.platform.target == 'aarch64-unknown-linux-gnu'
+      - name: Install cross-compilation tools (Linux aarch64)
+        if: matrix.cross == true
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Build binary
-        run: cargo build --release --target ${{ matrix.platform.target }}
+      - name: Cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
       - name: Package binary (Unix)
-        if: matrix.platform.os != 'windows-latest'
+        if: matrix.os != 'windows-latest'
         run: |
-          mkdir -p release-archive
-          cp target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} release-archive/
-          cd release-archive
-          tar czf ../${{ matrix.platform.name }} ${{ matrix.platform.bin }}
-          cd ..
-          ls -lh ${{ matrix.platform.name }}
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/cenv dist/cenv
+          cd dist && zip ${{ matrix.artifact }}.zip cenv && rm cenv
 
       - name: Package binary (Windows)
-        if: matrix.platform.os == 'windows-latest'
+        if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path release-archive
-          Copy-Item target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} release-archive/
-          Compress-Archive -Path release-archive/${{ matrix.platform.bin }} -DestinationPath ${{ matrix.platform.name }}
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/${{ matrix.target }}/release/cenv.exe dist/cenv.exe
+          Compress-Archive -Path dist/cenv.exe -DestinationPath dist/${{ matrix.artifact }}.zip
+          Remove-Item dist/cenv.exe
 
-      - name: Upload release artifacts
+      - name: Build .deb package (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          chmod +x scripts/create-deb.sh
+          ./scripts/create-deb.sh \
+            "$(grep '^version' Cargo.toml | sed 's/version = "\(.*\)"/\1/')" \
+            "${{ matrix.deb_arch }}" \
+            "target/${{ matrix.target }}/release/cenv"
+          mv cenv_*.deb dist/
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cenv-${{ matrix.platform.os_name }}
-          path: ${{ matrix.platform.name }}
+          name: ${{ matrix.artifact }}
+          path: dist/
 
-  create-release:
+  # ── Step 3: create the GitHub release ─────────────────────────────────────
+  release:
     name: Create Release
-    needs: release
+    needs: [prepare, build]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          ref: >-
+            ${{ github.event_name == 'workflow_dispatch'
+              && format('refs/tags/v{0}', needs.prepare.outputs.new_version)
+              || github.ref }}
 
-      - name: Download artifacts
+      - name: Resolve tag name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=v${{ needs.prepare.outputs.new_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read changelog entry for this version
+        id: changelog
+        run: |
+          python3 - <<'EOF'
+          import re, os
+
+          tag = os.environ['TAG'].lstrip('v')
+          content = open('CHANGES.md').read() if os.path.exists('CHANGES.md') else ""
+
+          # Extract the section for this version: from ## [X.Y.Z] to the next ## [
+          pattern = rf'(## \[{re.escape(tag)}\][^\n]*\n)(.*?)(?=\n## \[|\Z)'
+          m = re.search(pattern, content, re.DOTALL)
+          entry = (m.group(1) + m.group(2)).strip() if m else ""
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              # Multiline output needs special encoding
+              delimiter = "EOF_CHANGELOG"
+              f.write(f"body<<{delimiter}\n{entry}\n{delimiter}\n")
+          EOF
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Prepare release files
+      - name: Collect release files
         run: |
           mkdir -p release-files
-          find artifacts -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-files/ \;
+          find artifacts -type f \( -name "*.zip" -o -name "*.deb" \) -exec cp {} release-files/ \;
+          echo "Release assets:"
           ls -lh release-files/
 
-      - name: Create Release
+      - name: Publish release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }}
+          body: |
+            ${{ inputs.release_notes && format('{0}\n\n---\n\n', inputs.release_notes) || '' }}${{ steps.changelog.outputs.body }}
           files: release-files/*
-          generate_release_notes: true
           draft: false
           prerelease: false
         env:

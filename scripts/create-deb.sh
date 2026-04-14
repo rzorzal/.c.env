@@ -1,73 +1,62 @@
 #!/bin/bash
+# Usage: ./scripts/create-deb.sh <version> <arch> [binary_path]
+#
+#   version      Package version, e.g. 0.1.5
+#   arch         Debian architecture: amd64 | arm64
+#   binary_path  Path to the pre-built cenv binary (optional).
+#                If omitted, builds from source with `cargo build --release`.
+#
+# Examples:
+#   ./scripts/create-deb.sh 0.1.5 amd64
+#   ./scripts/create-deb.sh 0.1.5 amd64 target/release/cenv
 
 set -e
 
-VERSION="${1:-0.1.2}"
-ARCH="${2:-amd64}"  # amd64, arm64, armhf
+VERSION="${1:?Usage: $0 <version> <arch> [binary_path]}"
+ARCH="${2:?Usage: $0 <version> <arch> [binary_path]}"
+BINARY_PATH="${3:-}"
 
-# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-echo -e "${GREEN}Creating .deb package for C.env v${VERSION} (${ARCH})${NC}"
+echo -e "${GREEN}Creating .deb package — cenv v${VERSION} (${ARCH})${NC}"
 
-# Build the binary
-echo -e "${YELLOW}Building release binary...${NC}"
-cargo build --release
+# Build from source only if no binary was provided
+if [ -z "$BINARY_PATH" ]; then
+    echo -e "${YELLOW}No binary provided — building from source...${NC}"
+    cargo build --release
+    BINARY_PATH="target/release/cenv"
+fi
 
-# Create package structure
-PKG_DIR="cenv_${VERSION}_${ARCH}"
-mkdir -p "${PKG_DIR}/DEBIAN"
-mkdir -p "${PKG_DIR}/usr/local/bin"
-mkdir -p "${PKG_DIR}/usr/share/doc/cenv"
-mkdir -p "${PKG_DIR}/usr/share/man/man1"
+[ -f "$BINARY_PATH" ] || { echo "error: binary not found at '$BINARY_PATH'"; exit 1; }
 
-# Copy binary
-cp target/release/cenv "${PKG_DIR}/usr/local/bin/cenv"
-chmod 755 "${PKG_DIR}/usr/local/bin/cenv"
+# Package directory structure
+PKG="cenv_${VERSION}_${ARCH}"
+mkdir -p "${PKG}/DEBIAN"
+mkdir -p "${PKG}/usr/bin"
+mkdir -p "${PKG}/usr/share/doc/cenv"
 
-# Create control file
-cat > "${PKG_DIR}/DEBIAN/control" << EOF
+cp "$BINARY_PATH" "${PKG}/usr/bin/cenv"
+chmod 755 "${PKG}/usr/bin/cenv"
+
+cat > "${PKG}/DEBIAN/control" <<EOF
 Package: cenv
 Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: Your Name <your.email@example.com>
-Description: C.env - A simple configuration language and interpreter
- C.env is a lightweight configuration language designed for environment
- configuration with support for imports, type conversion, and more.
+Maintainer: Ricardo Zorzal
+Description: .env file compiler with JavaScript-like syntax
+ Write environment configuration once in a .cenv file and compile
+ it into .env files for any environment (production, staging, etc.)
 Homepage: https://github.com/rzorzal/.c.env
 EOF
 
-# Copy documentation
-if [ -f "Readme.md" ]; then
-    cp Readme.md "${PKG_DIR}/usr/share/doc/cenv/README.md"
-fi
+[ -f "Readme.md" ] && cp Readme.md "${PKG}/usr/share/doc/cenv/README.md"
+[ -f "LICENSE"   ] && cp LICENSE   "${PKG}/usr/share/doc/cenv/copyright"
 
-if [ -f "LICENSE" ]; then
-    cp LICENSE "${PKG_DIR}/usr/share/doc/cenv/copyright"
-fi
+dpkg-deb --build "${PKG}"
+rm -rf "${PKG}"
 
-# Create changelog
-cat > "${PKG_DIR}/usr/share/doc/cenv/changelog.gz" << EOF
-cenv (${VERSION}) stable; urgency=low
-
-  * Release version ${VERSION}
-
- -- Your Name <your.email@example.com>  $(date -R)
-EOF
-gzip -9 "${PKG_DIR}/usr/share/doc/cenv/changelog.gz"
-
-# Build the package
-echo -e "${YELLOW}Building .deb package...${NC}"
-dpkg-deb --build "${PKG_DIR}"
-
-echo -e "${GREEN}✓ Package created: ${PKG_DIR}.deb${NC}"
-echo ""
-echo "To install locally:"
-echo "  sudo dpkg -i ${PKG_DIR}.deb"
-echo ""
-echo "To remove:"
-echo "  sudo dpkg -r cenv"
+echo -e "${GREEN}✓ Created: ${PKG}.deb${NC}"
