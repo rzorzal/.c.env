@@ -219,6 +219,29 @@ jobs:
               && format('refs/tags/v{0}', needs.prepare.outputs.new_version)
               || github.ref }}
 
+      # Ensure Cargo.toml version matches the release tag so that
+      # `cenv --version` always prints the correct version number.
+      # On workflow_dispatch the prepare job already bumped Cargo.toml;
+      # this step is a safety net for manual tag pushes where Cargo.toml
+      # might not have been updated before the tag was pushed.
+      - name: Sync version from tag
+        if: github.event_name == 'push'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'EOF'
+          import re, os
+          tag = os.environ['TAG'].lstrip('v')
+          content = open('Cargo.toml').read()
+          current = re.search(r'^version = "([^"]+)"', content, re.MULTILINE).group(1)
+          if current != tag:
+              content = re.sub(r'^version = "[^"]+"', f'version = "{tag}"', content, flags=re.MULTILINE)
+              open('Cargo.toml', 'w').write(content)
+              print(f'Cargo.toml version updated: {current} → {tag}')
+          else:
+              print(f'Cargo.toml version already correct: {tag}')
+          EOF
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
