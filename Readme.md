@@ -1,464 +1,685 @@
-# C.env Language
+# cenv
 
-A `.env` file compiler that generates environment configuration files from `.cenv` source files with JavaScript-like syntax, module-based imports, and strong typing.
+A `.env` file compiler. Write your environment configuration once in a `.cenv` source file and compile it into `.env` files for any environment — production, staging, development, and beyond.
 
-## 🎯 Purpose
+```bash
+cenv config.cenv --module=production   # generates .env.production
+cenv config.cenv --module=staging      # generates .env.staging
+```
 
-C.env compiles `.cenv` source files into `.env` files for different environments (production, staging, development, etc.) using a `--module` argument to control which configuration to load.
+---
 
-## � Installation
+## Table of Contents
 
-### Quick Install (Recommended)
+- [Why cenv?](#why-cenv)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Core Concepts](#core-concepts)
+  - [Public vs Private Variables](#public-vs-private-variables)
+  - [The `module` Variable](#the-module-variable)
+  - [Imports](#imports)
+  - [Comments](#comments)
+- [Language Reference](#language-reference)
+  - [Data Types](#data-types)
+  - [Variables](#variables)
+  - [Template Strings](#template-strings)
+  - [Operators](#operators)
+  - [Built-in Functions](#built-in-functions)
+  - [Blocks](#blocks)
+- [CLI Reference](#cli-reference)
+- [Multi-Environment Pattern](#multi-environment-pattern)
+- [Building from Source](#building-from-source)
+- [Contributing](#contributing)
+
+---
+
+## Why cenv?
+
+Managing environment configuration across multiple deployments is painful. The common approaches all have trade-offs:
+
+| Approach | Problem |
+|---|---|
+| Multiple `.env` files | Copy-paste duplication, easy to miss a change |
+| Shell scripts | Hard to read, hard to maintain, not typed |
+| CI/CD env vars only | No local development workflow |
+
+**cenv** lets you write configuration logic once and compile it into separate `.env` files per environment. You get variables, imports, expressions, and a clean separation between what goes into the `.env` file and what is just for internal calculation.
+
+---
+
+## Installation
+
+### Quick Install (Unix/Linux/macOS)
 
 ```bash
 curl -sSf https://raw.githubusercontent.com/rzorzal/.c.env/main/install.sh | bash
 ```
 
-### Package Managers
+### Homebrew (macOS and Linux)
 
 ```bash
-# Homebrew (macOS/Linux)
-brew install rzorzal/cenv
+brew tap rzorzal/cenv https://github.com/rzorzal/.c.env
+brew install cenv
+```
 
-# From source with Cargo
+### Cargo (Rust Package Manager)
+
+```bash
 cargo install --git https://github.com/rzorzal/.c.env
 ```
 
-**[Complete Installation Guide →](INSTALL.md)** - More installation options including APT, pre-built binaries, and building from source.
+### Pre-built Binaries
 
-## 🚀 Quick Start
+Download the binary for your platform from the [releases page](https://github.com/rzorzal/.c.env/releases):
+
+**Linux (x86_64)**
+```bash
+wget https://github.com/rzorzal/.c.env/releases/latest/download/cenv-Linux-x86_64.tar.gz
+tar xzf cenv-Linux-x86_64.tar.gz
+sudo mv cenv /usr/local/bin/
+```
+
+**macOS (Apple Silicon)**
+```bash
+wget https://github.com/rzorzal/.c.env/releases/latest/download/cenv-Darwin-aarch64.tar.gz
+tar xzf cenv-Darwin-aarch64.tar.gz
+sudo mv cenv /usr/local/bin/
+```
+
+**macOS (Intel)**
+```bash
+wget https://github.com/rzorzal/.c.env/releases/latest/download/cenv-Darwin-x86_64.tar.gz
+tar xzf cenv-Darwin-x86_64.tar.gz
+sudo mv cenv /usr/local/bin/
+```
+
+**Windows**  
+Download `cenv-Windows-x86_64.zip` from the [releases page](https://github.com/rzorzal/.c.env/releases), extract it, and add the folder to your `PATH`.
+
+### APT (Debian/Ubuntu)
 
 ```bash
-# Compile and generate .env file (with production module variable)
-cenv examples/config.cenv --module=production
+wget https://github.com/rzorzal/.c.env/releases/latest/download/cenv_amd64.deb
+sudo dpkg -i cenv_amd64.deb
+```
 
-# Compile and generate .env file (with staging module variable)
-cenv examples/config.cenv --module=staging
+### Verify Installation
 
-# Custom output filename
-cenv examples/config.cenv --module=production --output=.env.production
-
-# Dry run - output to stdout without creating file
-cenv examples/config.cenv --module=production --dry
-
-# Get help
-cenv --help
-
-# Check version
+```bash
 cenv --version
 ```
 
-## 📚 Documentation
+---
 
-**[Complete Documentation →](docs/README.md)**
+## Quick Start
 
-- **[Getting Started](docs/getting-started/README.md)** - Installation and first steps
-- **[Language Reference](docs/language-reference/README.md)** - Complete syntax and features
-- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Commands & syntax quick reference
-- **[Examples](examples/README.md)** - Code examples and working demos
-- **[Implementation Summary](docs/PUBLIC_PRIVATE_VARS_SUMMARY.md)** - Public/private variables details
+**1. Create a config file**
 
-## ✨ Features
+```cenv
+# config.cenv
 
-- ✅ **Public/Private Variables** - Control which variables appear in the .env output ⭐ NEW
-- ✅ **Module Variable** - Special `module` variable set via `--module=value` argument
-- ✅ **Dynamic Imports** - Import files based on module: `import('./.cenv.' + module)`
-- ✅ **Data Types** - Numbers, strings, booleans, null
-- ✅ **Template Strings** - String interpolation with `"text ${variable} text"`
-- ✅ **Operators** - Full set with correct precedence (including string concatenation)
-- ✅ **Comments** - Hash comments (`#`) for .env, line (`//`) and block (`/* */`) for code
-- ✅ **Error Handling** - Clear, helpful error messages
+# Private variables — used for calculations, never exported to .env
+private base_url = "example.com"
+
+# Public variables — exported to .env
+APP_NAME = "MyApp"
+API_URL = "https://api." + base_url
+PORT = 3000
+DEBUG = false
+```
+
+**2. Compile it**
+
+```bash
+cenv config.cenv
+```
+
+**3. Check the output (`.env` file)**
+
+```env
+APP_NAME=MyApp
+API_URL=https://api.example.com
+PORT=3000
+DEBUG=false
+```
+
+That's it. Read [Multi-Environment Pattern](#multi-environment-pattern) to see the full power of `--module`.
+
+---
+
+## Core Concepts
 
 ### Public vs Private Variables
 
-**Public variables** (no `private` keyword) are exported to the `.env` file:
+The key distinction in cenv is whether a variable ends up in the generated `.env` file.
+
+**Public variables** — declared without any keyword — are exported to `.env`:
 
 ```cenv
-API_URL = "https://api.example.com"  // ✅ Exported to .env
-PORT = 8080                          // ✅ Exported to .env
+API_URL = "https://api.example.com"    // exported
+PORT = 8080                            // exported
+DEBUG = false                          // exported
 ```
 
-**Private variables** (with `private` keyword) are for internal calculations only:
+**Private variables** — declared with the `private` keyword — are only available during compilation. They never appear in the output:
 
 ```cenv
-private max_pool = 20      // ❌ Not exported to .env
-private min_pool = 5       // ❌ Not exported to .env
-POOL_SIZE = max_pool       // ✅ Exported to .env (value: 20)
+private pool_min = 5
+private pool_max = 20
+
+DB_POOL_SIZE = pool_max    // exported — value: 20
 ```
 
-### Import System
+This lets you do intermediate calculations, build strings, and organize logic without polluting the generated `.env` file.
 
-Import functions return **objects** containing all **public variables** from the imported file:
+---
 
-```cenv
-// database.cenv
-DATABASE_URL = "postgresql://localhost/db"
-DATABASE_PORT = 5432
-private connection_timeout = 30  // Not included in import object
-```
+### The `module` Variable
 
-**Using imports**:
-
-```cenv
-// Import returns an object with public variables
-private db_config = import("database.cenv")
-
-// Access variables using dot notation
-DATABASE_URL = db_config.DATABASE_URL
-DATABASE_PORT = db_config.DATABASE_PORT
-
-// Can use in expressions
-print("Connecting to:", db_config.DATABASE_URL)
-```
-
-**AWS Secrets Manager** (placeholder - returns empty object currently):
-
-```cenv
-private secrets = import_aws_secret("my-app/credentials")
-// In production: secrets.API_KEY, secrets.SECRET_TOKEN, etc.
-```
-
-**Key points**:
-
-- ✅ `import()` and `import_aws_secret()` return objects
-- ✅ Only **public variables** are included in the object
-- ✅ Access fields using dot notation: `obj.field`
-- ✅ Backward compatible: standalone `import("file")` still merges variables
-
-### Output Modes
-
-**File output (default)**:
-
-- Creates `.env` file by default
-- Use `--module=<name>` → creates `.env.<name>`
-- Use `--output=<filename>` → creates custom filename
-- **Priority**: `--output` > `--module` > `.env`
-
-**Dry run** (`--dry` flag):
-
-- No file created - all output to stdout
-- Shows both print statements and .env variables
-- Useful for testing and debugging
-
-**Examples**:
+`module` is a special built-in string variable set by the `--module` CLI flag.
 
 ```bash
-cenv config.cenv                           # → .env
-cenv config.cenv --module=production       # → .env.production
-cenv config.cenv --output=.env.custom      # → .env.custom
-cenv config.cenv --module=prod --output=.env.p  # → .env.p (output wins)
-cenv config.cenv --dry                     # → stdout only
+cenv config.cenv --module=production
+# module = "production"
 ```
 
-- ✅ **Built-in Functions** - print(), type(), len(), num(), str(), bool()
-- ✅ **Import Statements** - Load and share code across files with expression support
-- ✅ **Runtime Evaluation** - Execute programs with proper error handling
+Its primary use is driving dynamic imports:
 
-## 📖 Example
+```cenv
+private env = import("./.cenv." + module)
+// --module=production → imports .cenv.production
+// --module=staging    → imports .cenv.staging
+```
 
-### Module-Based .env Compilation
+You can also export it directly to your `.env` file:
 
-C.env allows you to maintain different environment configurations and compile them to `.env` files.
+```cenv
+ENVIRONMENT = module    // exported as "production" or "staging"
+```
 
-#### Main Configuration: `examples/config.cenv`
+---
 
-```javascript
-// Import environment-specific config based on module
-import("examples/.cenv." + module)
+### Imports
 
-// Private variables for internal calculations
-private max_pool_size = 20
-private min_pool_size = 5
+The `import()` function loads another `.cenv` file and returns an **object** containing all of its **public variables**.
 
-// Public variables exported to .env
+```cenv
+// db.cenv
+DB_HOST = "localhost"
+DB_PORT = 5432
+private connection_retries = 3    // stays private, not included in the import object
+```
+
+```cenv
+// main.cenv
+private db = import("./db.cenv")
+
+DB_HOST = db.DB_HOST    // "localhost"
+DB_PORT = db.DB_PORT    // 5432
+```
+
+**Rules:**
+- `import()` **must** be assigned to a variable. Standalone `import()` is a syntax error.
+- Only public variables from the imported file are returned in the object.
+- Private variables in the imported file stay private and are not accessible.
+- Import paths support expressions: `import("./.cenv." + module)`
+
+**Optional chaining (`?.`)** — safely access a field that might not exist. Returns `null` instead of throwing an error:
+
+```cenv
+private config = import("./optional-config.cenv")
+private key = config?.OPTIONAL_KEY    // null if OPTIONAL_KEY is not defined
+```
+
+#### AWS Secrets Manager
+
+`import_aws_secret()` has the same interface as `import()` and is designed for fetching secrets from AWS Secrets Manager:
+
+```cenv
+private secrets = import_aws_secret("my-app/production/db")
+DB_PASSWORD = secrets?.DB_PASSWORD
+```
+
+> **Note:** `import_aws_secret()` is not yet implemented. It currently returns an empty object. AWS integration is planned for a future release.
+
+---
+
+### Comments
+
+cenv has three comment types with different behaviors:
+
+| Syntax | Appears in `.env`? | Use for |
+|---|---|---|
+| `# comment` | **Yes** | Documenting the deployed `.env` file |
+| `// comment` | No | Developer notes in source code |
+| `/* comment */` | No | Multi-line developer notes |
+
+**Hash comments (`#`)** are preserved in the generated `.env` file:
+
+```cenv
+# Database Configuration
+DB_HOST = "localhost"
+DB_PORT = "5432"
+```
+
+Generated `.env`:
+
+```env
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+**Line and block comments** are stripped during compilation and never appear in the output:
+
+```cenv
+// This note will NOT appear in .env
+/* Neither will this block */
+SECRET_KEY = "abc123"
+```
+
+---
+
+## Language Reference
+
+### Data Types
+
+| Type | Examples |
+|---|---|
+| String | `"hello"`, `"https://api.example.com"` |
+| Number | `3000`, `42`, `3.14` |
+| Boolean | `true`, `false` |
+| Null | `null` |
+
+---
+
+### Variables
+
+```cenv
+// Public variable — exported to .env
+API_URL = "https://api.example.com"
+
+// Private variable — internal use only
+private timeout = 30
+
+// Reassignment (works for both public and private variables)
+timeout = 60
+```
+
+Public variable names are typically `SCREAMING_SNAKE_CASE` — they become the keys in the `.env` file. Private variable names can use any casing you prefer.
+
+---
+
+### Template Strings
+
+Embed expressions inside strings using `${}`:
+
+```cenv
+private host = "api.example.com"
+private version = "v2"
+
+API_URL = "https://${host}/${version}"
+// Result: https://api.example.com/v2
+```
+
+You can also build strings with the `+` operator:
+
+```cenv
+API_URL = "https://" + host + "/" + version
+```
+
+---
+
+### Operators
+
+**Arithmetic**
+
+```cenv
+private a = 10
+private b = 3
+
+SUM        = a + b    // 13
+DIFFERENCE = a - b    // 7
+PRODUCT    = a * b    // 30
+QUOTIENT   = a / b    // 3.333...
+REMAINDER  = a % b    // 1
+```
+
+**Comparison** — evaluates to a boolean:
+
+```cenv
+private x = 10
+IS_BIG  = x > 5      // true
+IS_TEN  = x == 10    // true
+NOT_TEN = x != 10    // false
+```
+
+**Logical**
+
+```cenv
+private is_prod  = true
+private is_debug = false
+
+CAN_LOG = is_prod & !is_debug    // true  (AND)
+EITHER  = is_prod | is_debug     // true  (OR)
+NEGATED = !is_prod               // false (NOT)
+```
+
+**Operator Precedence** (highest to lowest):
+
+| Level | Operators | Example |
+|---|---|---|
+| 1 (highest) | `*` `/` `%` | `2 * 3` |
+| 2 | `+` `-` | `5 + 3` |
+| 3 | `<` `>` `<=` `>=` | `x < 10` |
+| 4 | `==` `!=` | `a == b` |
+| 5 | `&` | `a & b` |
+| 6 (lowest) | `\|` | `a \| b` |
+
+---
+
+### Built-in Functions
+
+**`print(...args)`**  
+Writes values to stdout during compilation. Does not affect the `.env` output. Useful for debugging.
+
+```cenv
+print("Compiling for:", module)
+print("Port:", PORT, "Debug:", DEBUG)
+```
+
+**`type(value)`**  
+Returns the type name of a value: `"number"`, `"string"`, `"boolean"`, `"null"`, `"array"`, or `"object"`.
+
+```cenv
+print(type(3000))    // "number"
+print(type("hi"))    // "string"
+```
+
+**`len(value)`**  
+Returns the character count of a string.
+
+```cenv
+private n = len("hello")    // 5
+```
+
+**`num(value)`**  
+Converts a string to a number.
+
+```cenv
+private s = "42"
+private n = num(s)    // 42
+```
+
+**`str(value)`**  
+Converts a number or boolean to a string. Useful when building URLs or connection strings.
+
+```cenv
+private port = 5432
+DB_URL = "postgres://localhost:" + str(port) + "/myapp"
+```
+
+**`bool(value)`**  
+Returns the truthiness of a value. `0`, `""`, `null`, and `false` are falsy; everything else is truthy.
+
+```cenv
+private a = bool(0)      // false
+private b = bool("yes")  // true
+private c = bool(null)   // false
+```
+
+---
+
+### Blocks
+
+Curly braces group related statements together. Variables declared inside a block are visible outside it.
+
+```cenv
+// Group related configuration
+{
+    private db_host = "localhost"
+    private db_port = 5432
+
+    DATABASE_URL = "postgres://" + db_host + ":" + str(db_port) + "/myapp"
+}
+
+// DATABASE_URL is still accessible here
+print("Connecting to:", DATABASE_URL)
+```
+
+Blocks can be nested:
+
+```cenv
+{
+    private base = 10
+    {
+        private factor = 4
+        MAX_CONNECTIONS = base * factor    // 40
+    }
+}
+```
+
+---
+
+## CLI Reference
+
+```
+cenv <file> [options]
+```
+
+| Flag | Description |
+|---|---|
+| `--module=<name>` | Sets the `module` variable; output file is named `.env.<name>` |
+| `--output=<filename>` | Override the output filename |
+| `--dry` | Print output to stdout, do not write a file |
+| `--debug` | Show the token stream and parsed AST |
+| `--version` | Print the installed version |
+| `--help` | Print usage information |
+
+**Output file naming:**
+
+| Command | Output |
+|---|---|
+| `cenv config.cenv` | `.env` |
+| `cenv config.cenv --module=production` | `.env.production` |
+| `cenv config.cenv --output=.env.custom` | `.env.custom` |
+| `cenv config.cenv --module=prod --output=custom.env` | `custom.env` (`--output` takes priority) |
+| `cenv config.cenv --dry` | stdout only, no file created |
+
+---
+
+## Multi-Environment Pattern
+
+This is the recommended way to manage configuration across multiple environments with cenv.
+
+### File Layout
+
+```
+your-project/
+├── config/
+│   ├── config.cenv          # main config — the file you compile
+│   ├── .cenv.production     # production-specific values
+│   ├── .cenv.staging        # staging-specific values
+│   └── .cenv.development    # development-specific values
+```
+
+### `config/config.cenv`
+
+```cenv
+// Load environment-specific values
+private env = import("./.cenv." + module)
+
+// Shared values — same across all environments
 APP_NAME = "MyApplication"
-APP_VERSION = "1.0.0"
-PORT = 3000
+APP_VERSION = "1.2.0"
 
-// Calculated public variable using private variable
-DATABASE_POOL_SIZE = max_pool_size
+// Derived values using private variables
+private base_pool = 5
+DB_POOL_SIZE = base_pool * 4
 
-// Using imported variables
+// Environment-specific values come from the imported file
+API_URL      = env.API_URL
+DATABASE_URL = env.DATABASE_URL
+DEBUG        = env.DEBUG
+LOG_LEVEL    = env.LOG_LEVEL
+
+// Export the current environment name
 ENVIRONMENT = module
 
-print("Compiling .env for environment:", module)
-print("API URL:", API_URL)
+print("Built .env for:", module)
 ```
 
-#### Environment-Specific Files
+### `config/.cenv.production`
 
-```javascript
-// examples/.cenv.production
-API_URL = "https://prod.api.example.com"
+```cenv
+API_URL      = "https://api.example.com"
 DATABASE_URL = "postgresql://prod-db.example.com:5432/myapp"
-DEBUG_MODE = false
-LOG_LEVEL = "error"
+DEBUG        = false
+LOG_LEVEL    = "error"
 
-private internal_cache_ttl = 3600
+private cache_ttl = 3600    // internal only
 ```
 
-```javascript
-// examples/.cenv.staging
-API_URL = "https://staging.api.example.com"
+### `config/.cenv.staging`
+
+```cenv
+API_URL      = "https://staging.api.example.com"
 DATABASE_URL = "postgresql://staging-db.example.com:5432/myapp"
-DEBUG_MODE = true
-LOG_LEVEL = "debug"
+DEBUG        = true
+LOG_LEVEL    = "debug"
 
-private internal_cache_ttl = 60
+private cache_ttl = 60
 ```
 
-#### Compilation
+### `config/.cenv.development`
+
+```cenv
+API_URL      = "http://localhost:8080"
+DATABASE_URL = "postgresql://localhost:5432/myapp_dev"
+DEBUG        = true
+LOG_LEVEL    = "debug"
+
+private cache_ttl = 10
+```
+
+### Compiling
 
 ```bash
-# Compile for production (creates .env.production)
-./target/release/cenv examples/config.cenv --module=production
+# Production
+cenv config/config.cenv --module=production
+# Creates: .env.production
 
-# Output:
-# ✓ Generated .env.production
-# Compiling .env for environment: production
-# API URL: https://prod.api.example.com
+# Staging
+cenv config/config.cenv --module=staging
+# Creates: .env.staging
 
-# Output (.env.production file content):
-# API_URL=https://prod.api.example.com
-# APP_NAME=MyApplication
-# APP_VERSION=1.0.0
-# DATABASE_POOL_SIZE=20
-# DATABASE_URL=postgresql://prod-db.example.com:5432/myapp
-# DEBUG_MODE=false
-# ENVIRONMENT=production
-# LOG_LEVEL=error
-# PORT=3000
+# Development
+cenv config/config.cenv --module=development
+# Creates: .env.development
 
-# Dry run mode - output to stdout without creating file
-cargo run --quiet -- examples/config.cenv --module=production --dry
+# Preview without writing a file
+cenv config/config.cenv --module=production --dry
 ```
 
-// Built-in functions
-print("Type of port:", type(port))
-print("Port as string:", str(port))
+### Generated `.env.production`
 
-// Calculations
-private maxUsers = 100
-private bufferSize = maxUsers \* 1024
-print("Buffer size:", bufferSize)
+```env
+API_URL=https://api.example.com
+APP_NAME=MyApplication
+APP_VERSION=1.2.0
+DATABASE_URL=postgresql://prod-db.example.com:5432/myapp
+DB_POOL_SIZE=20
+DEBUG=false
+ENVIRONMENT=production
+LOG_LEVEL=error
+```
 
-// Type conversion
-private userInput = "42"
-private value = num(userInput)
-print("Converted value:", value)
+### Gitignore
 
-// Import from other files
-import("config.cenv")
-print("Loaded config:", api_url)
+Commit your `.cenv` source files and ignore the generated `.env` files:
 
-````
+```gitignore
+# Generated files — do not commit
+.env
+.env.*
 
-### Module-Based Import Example
+# Keep source files
+!config/.cenv.*
+```
 
-```javascript
-// config.cenv - Main configuration file
-import("./.cenv." + module)  // Dynamically import based on --module argument
-print("Loaded config for:", module)
-````
+### CI/CD Integration
 
-```javascript
-// .cenv.production
-private api_url = "https://api.example.com"
-private timeout = 30
-private max_retries = 3
+Add a compile step to your pipeline before deploying:
+
+```yaml
+# GitHub Actions
+- name: Compile environment config
+  run: cenv config/config.cenv --module=production
 ```
 
 ```bash
-# Compile with module
-./target/release/cenv config.cenv --module=production
-# Output: Loaded config for: production
+# Generic shell script
+cenv config/config.cenv --module=$DEPLOY_ENV
 ```
 
-## 🏗️ Project Status
+---
 
-**Phase 1 Complete!** ✅ **Phase 2.1 Complete!** ✅ **Phase 2.2 Complete!** ✅ **Phase 2.3 Complete!** ✅
+## Building from Source
 
-- ✅ Error infrastructure with helpful messages
-- ✅ Lexer with comments and multi-char operators
-- ✅ Parser with correct operator precedence (6 levels)
-- ✅ Assignment statements for variable mutation
-- ✅ Runtime evaluator with environment management
-- ✅ Built-in functions (print, type, len, num, str, bool)
-- ✅ Import statements for code organization
-- ✅ Comprehensive test suite (82 tests passing)
-- ✅ Modular test organization (separate files per feature)
-
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the full roadmap.
-
-## 🚀 Running Programs
-
-Execute a C.env program:
+**Requirements:** Rust 1.70+ and Cargo.
 
 ```bash
-./target/release/cenv program.cenv
+# Clone
+git clone https://github.com/rzorzal/.c.env.git
+cd c.env.lang
+
+# Build optimized binary
+cargo build --release
+
+# Copy to PATH
+sudo cp target/release/cenv /usr/local/bin/cenv
+
+# Or install with Cargo directly
+cargo install --path .
 ```
 
-Example output:
-
-```bash
-$ ./target/release/cenv examples/phase2_2_demo.cenv
-Hello, World!
-42
-true
-Name: Alice
-Age: 30
-Total: 30
-```
-
-Debug mode (shows parsing and AST):
-
-```bash
-./target/release/cenv program.cenv --debug
-```
-
-## 🧪 Running Tests
+**Run the test suite:**
 
 ```bash
 cargo test --lib
 ```
 
-Expected output:
+---
 
-```
-running 68 tests
-test result: ok. 68 passed; 0 failed
-```
-
-## 📝 Quick Reference
-
-### Variable Declaration
-
-```javascript
-private variableName = value
-```
-
-### Assignment (Reassignment)
-
-```javascript
-variableName = newValue;
-```
-
-Example:
-
-```javascript
-private counter = 0
-counter = 10
-counter = counter + 1  // counter is now 11
-```
-
-### Operators (by precedence)
-
-| Precedence | Operators         | Example  |
-| ---------- | ----------------- | -------- |
-| Highest    | `*` `/` `%`       | `2 * 3`  |
-| ↓          | `+` `-`           | `5 + 3`  |
-| ↓          | `<` `>` `<=` `>=` | `x < 10` |
-| ↓          | `==` `!=`         | `a == b` |
-| ↓          | `&`               | `a & b`  |
-| Lowest     | `\|`              | `a \| b` |
-
-### Comments
-
-C.env supports three types of comments with different behaviors:
-
-**Hash comments (`#`)** - Preserved in .env output:
-
-```cenv
-# Database Configuration
-DB_HOST = "localhost"
-# Use port 5432 for PostgreSQL
-DB_PORT = "5432"
-```
-
-Generated `.env` file:
+## Uninstalling
 
 ```bash
-# Database Configuration
-DB_HOST=localhost
-# Use port 5432 for PostgreSQL
-DB_PORT=5432
+# curl / manual install
+rm ~/.local/bin/cenv
+
+# Homebrew
+brew uninstall cenv
+
+# APT
+sudo dpkg -r cenv
+
+# Cargo
+cargo uninstall c_env_lang
 ```
-
-**Line comments (`//`)** - Development only (NOT in .env):
-
-```cenv
-// This comment is for developers only
-// It will NOT appear in the generated .env file
-API_KEY = "your-key-here"
-```
-
-**Block comments (`/* */`)** - Development only (NOT in .env):
-
-```cenv
-/*
-  This multi-line comment is for internal documentation
-  It will NOT appear in the .env file
-*/
-SECRET = "secret-value"
-```
-
-**Use cases**:
-
-- Use `#` comments when you want documentation in the deployed .env file
-- Use `//` or `/* */` for internal development notes and explanations
-- See [`examples/hash_comments.cenv`](examples/hash_comments.cenv) for a complete example
-
-## 🛠️ Building from Source
-
-### Requirements
-
-- Rust 1.70 or later
-- Cargo (comes with Rust)
-
-### Build Steps
-
-```bash
-# Clone the repository
-git clone <repository-url>
-cd c.env.lang
-
-# Build debug version
-cargo build
-
-# Build release version (optimized)
-cargo build --release
-
-# Install to system (optional)
-cargo install --path .
-```
-
-## 📂 Project Structure
-
-```
-c.env.lang/
-├── src/
-│   ├── main.rs          # Entry point
-│   ├── lib.rs           # Library exports
-│   ├── lexing/          # Lexer implementation
-│   └── grama/           # Parser implementation
-├── docs/                # Documentation
-├── examples/            # Example .c.env files
-└── IMPLEMENTATION_PLAN.md
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for areas that need work.
-
-## 📚 Resources
-
-- [Lexical Analysis Reference](https://krypticmouse.hashnode.dev/writing-a-compiler-lexical-analysis)
-- [Sox Language Reference](https://github.com/obiesie/sox/tree/main/src)
-
-## 📄 License
-
-[Add license information here]
 
 ---
 
-**Need Help?** Check the [FAQ](docs/faq.md) or [Getting Started Guide](docs/getting-started/README.md)
+## Contributing
+
+Contributions are welcome. Check [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md) for the roadmap — planned features include control flow (`if`/`else`), loops, object literals, and full AWS Secrets Manager integration.
+
+1. Fork the repository on [GitHub](https://github.com/rzorzal/.c.env)
+2. Create a feature branch
+3. Add tests for your changes (`cargo test --lib`)
+4. Open a pull request
+
+---
+
+## License
+
+[Add license information here]
