@@ -193,14 +193,14 @@ jobs:
             deb_arch: arm64
             cross: true
 
-          - os: macos-13          # Intel runner
-            target: x86_64-apple-darwin
-            artifact: cenv-macOS-x86_64
-            cross: false
-
-          - os: macos-latest      # Apple Silicon runner
+          - os: macos-latest      # Apple Silicon — builds aarch64 natively
             target: aarch64-apple-darwin
             artifact: cenv-macOS-aarch64
+            cross: false
+
+          - os: macos-latest      # Apple Silicon — cross-compiles for Intel
+            target: x86_64-apple-darwin
+            artifact: cenv-macOS-x86_64
             cross: false
 
           - os: windows-latest
@@ -281,6 +281,14 @@ jobs:
   release:
     name: Create Release
     needs: [prepare, build]
+    # Run even if some platform builds failed — publish whatever artifacts
+    # were successfully produced. The job is only skipped if prepare failed
+    # (bad version bump) or the entire run was cancelled.
+    if: |
+      always() &&
+      !cancelled() &&
+      (needs.prepare.result == 'success' || needs.prepare.result == 'skipped') &&
+      needs.build.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
